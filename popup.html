@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 300px;
+      height: 200px;
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    
+    .tagline {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+    
+    .content {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .feature {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .feature:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .feature-icon {
+      width: 24px;
+      height: 24px;
+      margin-right: 12px;
+      font-size: 18px;
+    }
+    
+    .feature-text {
+      font-size: 14px;
+    }
+    
+    .footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">Compre AI</div>
+    <div class="tagline">Text Translator</div>
+  </div>
+  
+  <div class="content">
+    <div class="feature" id="translate-text">
+      <div class="feature-icon">🌐</div>
+      <div class="feature-text">Translate Selected Text</div>
+    </div>
+    
+    <div class="feature" id="settings-btn" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 15px;">
+      <div class="feature-icon">⚙️</div>
+      <div class="feature-text">Settings</div>
+    </div>
+  </div>
+  
+  <div class="footer">
+    Version 1.0.0
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

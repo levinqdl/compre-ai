@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Compre AI Translator - Settings</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: white;
+    }
+    
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      padding: 30px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 28px;
+    }
+    
+    .setting-group {
+      margin-bottom: 25px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      background: rgba(255, 255, 255, 0.9);
+      color: #333;
+      box-sizing: border-box;
+    }
+    
+    input:focus, select:focus {
+      outline: none;
+      background: white;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+    }
+    
+    .help-text {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-top: 5px;
+    }
+    
+    .save-btn {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      width: 100%;
+      margin-top: 20px;
+    }
+    
+    .save-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .status-message {
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 15px;
+      text-align: center;
+      font-size: 14px;
+    }
+    
+    .success {
+      background: rgba(76, 175, 80, 0.8);
+    }
+    
+    .error {
+      background: rgba(244, 67, 54, 0.8);
+    }
+    
+    .api-providers {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    
+    .provider {
+      margin-bottom: 10px;
+    }
+    
+    .provider a {
+      color: rgba(255, 255, 255, 0.9);
+      text-decoration: none;
+    }
+    
+    .provider a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌐 Translation Settings</h1>
+    
+    <form id="settings-form">
+      <div class="setting-group">
+        <label for="api-key">Translation API Key:</label>
+        <input type="password" id="api-key" placeholder="Enter your translation API key">
+        <div class="help-text">
+          Your API key is stored securely and never shared. Get one from the providers below.
+        </div>
+      </div>
+      
+      <div class="setting-group">
+        <label for="target-language">Default Target Language:</label>
+        <select id="target-language">
+          <option value="en">English</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="it">Italian</option>
+          <option value="pt">Portuguese</option>
+          <option value="ru">Russian</option>
+          <option value="ja">Japanese</option>
+          <option value="ko">Korean</option>
+          <option value="zh">Chinese</option>
+          <option value="ar">Arabic</option>
+          <option value="hi">Hindi</option>
+        </select>
+        <div class="help-text">
+          Text will be translated to this language by default.
+        </div>
+      </div>
+      
+      <div class="setting-group">
+        <label for="api-endpoint">API Endpoint (Optional):</label>
+        <input type="url" id="api-endpoint" placeholder="https://your-translation-api.com/translate">
+        <div class="help-text">
+          Leave blank to use default. Customize if you're using your own translation service.
+        </div>
+      </div>
+      
+      <button type="submit" class="save-btn">💾 Save Settings</button>
+    </form>
+    
+    <div id="status-message"></div>
+    
+    <div class="api-providers">
+      <h3>🔧 Supported Translation Providers:</h3>
+      <div class="provider">
+        <strong>Google Translate API:</strong> 
+        <a href="https://cloud.google.com/translate" target="_blank">Get API Key</a>
+      </div>
+      <div class="provider">
+        <strong>DeepL API:</strong> 
+        <a href="https://www.deepl.com/pro-api" target="_blank">Get API Key</a>
+      </div>
+      <div class="provider">
+        <strong>Microsoft Translator:</strong> 
+        <a href="https://azure.microsoft.com/en-us/services/cognitive-services/translator/" target="_blank">Get API Key</a>
+      </div>
+      <div class="provider">
+        <strong>LibreTranslate:</strong> 
+        <a href="https://libretranslate.com/" target="_blank">Free & Open Source</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
