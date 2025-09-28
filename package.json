@@ -1,0 +1,13 @@
+{
+  "name": "compre-ai-extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Compre AI Chrome extension",
+  "scripts": {
+    "clean": "rm -rf dist && mkdir -p dist",
+    "prep:dev": "cp config.dev.js config.js",
+    "prep:prod": "cp config.prod.js config.js",
+    "zip:dev": "npm run clean && npm run prep:dev && zip -r dist/compre-ai-dev.zip . -x 'dist/*' 'config.prod.js' '.git*'",
+    "zip:prod": "npm run clean && npm run prep:prod && zip -r dist/compre-ai-prod.zip . -x 'dist/*' 'config.dev.js' '.git*'"
+  }
+}

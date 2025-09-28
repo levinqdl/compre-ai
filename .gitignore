@@ -1,0 +1,5 @@
+# Ignore environment-selected config file
+config.js
+
+# Build artifacts
+/dist

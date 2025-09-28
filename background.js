@@ -1,4 +1,6 @@
 // Background script for Compre AI Chrome Extension
+// Load environment configuration
+try { importScripts('config.js'); } catch (e) { console.warn('Config not loaded', e); }
 // Handles extension lifecycle, background tasks, and browser events
 
 // Extension installation and startup
@@ -18,36 +20,9 @@ function showWelcomeNotification() {
       type: 'basic',
       iconUrl: 'icons/icon48.png',
       title: 'Compre AI Translator Installed',
-      message: 'Select text on any webpage and click the extension icon to translate!'
+      message: 'Select text on any webpage to see the translation panel!'
     });
   }
 }
-
-// Context menu setup
-chrome.runtime.onInstalled.addListener(() => {
-  // Create context menu item for translation
-  chrome.contextMenus.create({
-    id: 'translateSelectedText',
-    title: 'Translate with Compre AI',
-    contexts: ['selection']
-  });
-});
-
-// Handle context menu clicks
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (!tab.id) return;
-  
-  try {
-    const selectedText = info.selectionText;
-    
-    // Send message to content script
-    await chrome.tabs.sendMessage(tab.id, {
-      action: 'translate-text',
-      selectedText: selectedText
-    });
-  } catch (error) {
-    console.error('Translation error:', error);
-  }
-});
 
 console.log('Compre AI Translator background script loaded');

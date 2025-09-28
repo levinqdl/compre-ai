@@ -103,6 +103,7 @@ compre-ai/
 - ✅ Settings storage
 - ✅ Analytics logging framework
 - ✅ Error handling
+- ✅ Environment-based API base URL selection (config.dev.js / config.prod.js)
 
 ### Permissions Used
 
@@ -195,3 +196,75 @@ If you encounter any issues or have questions:
 ---
 
 **Made with ❤️ for better web browsing**
+
+## 🌍 Environment Configuration (API Base URL)
+
+This extension supports different API base URLs for development and production without a bundler using a lightweight config swap pattern:
+
+Files:
+- `config.dev.js`  -> sets `window.API_BASE_URL` for local development (e.g. `http://localhost:3000`)
+- `config.prod.js` -> sets `window.API_BASE_URL` for production (e.g. hosted API domain)
+- `config.js`      -> (ignored by git) copied from one of the above and actually loaded by the extension
+
+Injected order:
+- `manifest.json` now loads `config.js` before `content.js`
+- `popup.html` and `settings.html` include `<script src="config.js"></script>` before their own scripts
+- `background.js` loads it via `importScripts('config.js')`
+
+Usage in code:
+```
+// content.js / settings.js
+// Base chosen automatically; user can still override with a custom endpoint in settings
+const stored = await chrome.storage.sync.get(['apiEndpoint']);
+const base = stored.apiEndpoint || window.API_BASE_URL;
+```
+
+### Switch Environments
+
+Development (local API):
+```
+cp config.dev.js config.js
+```
+Production (hosted API):
+```
+cp config.prod.js config.js
+```
+Reload the unpacked extension after switching.
+
+### NPM Script Workflow
+
+You can automate environment prep and packaging with the provided scripts (see `package.json`). First install dependencies (there are none, but this sets up the lockfile if desired):
+```
+npm install
+```
+
+Create a development zip:
+```
+npm run zip:dev
+```
+Creates: `dist/compre-ai-dev.zip`
+
+Create a production zip:
+```
+npm run zip:prod
+```
+Creates: `dist/compre-ai-prod.zip`
+
+Just switch config without zipping:
+```
+npm run prep:dev
+npm run prep:prod
+```
+
+### Packaging Tip
+Before zipping for release ensure `config.js` matches production:
+```
+cp config.prod.js config.js
+zip -r compre-ai-prod.zip . -x 'dist/*' '*.git*' 'config.dev.js'
+```
+
+### Custom User Endpoint
+If the user specifies a custom endpoint in Settings, that overrides `window.API_BASE_URL`.
+
+### Why Not process.env?
+Chrome extensions run directly in the browser; there is no Node runtime. This pattern keeps things simple without adding a build step.

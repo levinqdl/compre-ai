@@ -94,7 +94,8 @@ document.addEventListener('DOMContentLoaded', function() {
         'apiEndpoint'
       ]);
 
-      const endpoint = settings.apiEndpoint || 'https://your-translation-api.com/translate';
+  const endpointBase = settings.apiEndpoint || (typeof window !== 'undefined' ? window.API_BASE_URL : null) || 'https://your-translation-api.com';
+  const endpoint = endpointBase.replace(/\/$/, '') + '/translate';
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -105,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         body: JSON.stringify({
           text: testText,
-          target_language: settings.targetLanguage || 'en',
+          to: settings.targetLanguage || 'en',
           detect_source: true
         })
       });
