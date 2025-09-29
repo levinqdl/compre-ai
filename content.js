@@ -25,16 +25,18 @@
     console.log('Compre AI content script initialized');
   }
 
-  // Debounced selection change handler
+    // Debounced selection change handler
   function debounceSelectionChange() {
     if (selectionTimeout) {
       clearTimeout(selectionTimeout);
     }
     
     selectionTimeout = setTimeout(() => {
-      const selectedText = getSelectedText();
+      const { selectedText, completeSentence } = getCompleteSentence();
       if (selectedText && selectedText.length > 0) {
-        showSidePanel(selectedText);
+        showSidePanel(selectedText, completeSentence);
+      } else {
+        hideSidePanel();
       }
     }, 300);
   }
@@ -44,13 +46,121 @@
     return selection.toString().trim();
   }
 
-  function showSidePanel(selectedText) {
+  function getCompleteSentence() {
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.toString().trim() === '') {
+      return { selectedText: '', completeSentence: '' };
+    }
+
+    const selectedText = selection.toString().trim();
+    const range = selection.getRangeAt(0);
+    
+    // Get the text content of the container element
+    let container = range.commonAncestorContainer;
+    
+    // If it's a text node, get its parent element
+    if (container.nodeType === Node.TEXT_NODE) {
+      container = container.parentElement;
+    }
+    
+    // Find the closest block-level element or paragraph
+    while (container && !isBlockElement(container) && container.parentElement) {
+      container = container.parentElement;
+    }
+    
+    if (!container) {
+      return { selectedText, completeSentence: selectedText };
+    }
+    
+    // Get all text content from the container
+    const fullText = container.textContent || container.innerText || '';
+    
+    // Find the sentence boundaries around the selected text
+    const completeSentence = extractSentenceContaining(fullText, selectedText);
+    
+    return { selectedText, completeSentence };
+  }
+
+  function isBlockElement(element) {
+    if (!element || !element.tagName) return false;
+    
+    const blockElements = [
+      'P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 
+      'BLOCKQUOTE', 'LI', 'TD', 'TH', 'ARTICLE', 'SECTION', 
+      'ASIDE', 'NAV', 'MAIN', 'HEADER', 'FOOTER'
+    ];
+    
+    return blockElements.includes(element.tagName.toUpperCase());
+  }
+
+  function extractSentenceContaining(fullText, selectedText) {
+    if (!fullText || !selectedText) return selectedText;
+    
+    // Clean up the text
+    const cleanText = fullText.replace(/\s+/g, ' ').trim();
+    const cleanSelected = selectedText.replace(/\s+/g, ' ').trim();
+    
+    // Find the position of selected text in full text
+    const selectedIndex = cleanText.toLowerCase().indexOf(cleanSelected.toLowerCase());
+    if (selectedIndex === -1) return selectedText;
+    
+    // Sentence ending patterns (more comprehensive)
+    const sentenceEnders = /[.!?]+(?:\s|$)/g;
+    const sentences = [];
+    let match;
+    let lastIndex = 0;
+    
+    // Split text into sentences
+    while ((match = sentenceEnders.exec(cleanText)) !== null) {
+      const sentence = cleanText.substring(lastIndex, match.index + match[0].length).trim();
+      if (sentence) {
+        sentences.push({
+          text: sentence,
+          startIndex: lastIndex,
+          endIndex: match.index + match[0].length
+        });
+      }
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add the last part if it doesn't end with punctuation
+    if (lastIndex < cleanText.length) {
+      const lastSentence = cleanText.substring(lastIndex).trim();
+      if (lastSentence) {
+        sentences.push({
+          text: lastSentence,
+          startIndex: lastIndex,
+          endIndex: cleanText.length
+        });
+      }
+    }
+    
+    // Find which sentence contains the selected text
+    for (const sentence of sentences) {
+      if (selectedIndex >= sentence.startIndex && selectedIndex < sentence.endIndex) {
+        return sentence.text;
+      }
+    }
+    
+    // Fallback: if no sentence found, try to find by proximity
+    const selectedEnd = selectedIndex + cleanSelected.length;
+    for (const sentence of sentences) {
+      if (selectedIndex < sentence.endIndex && selectedEnd > sentence.startIndex) {
+        return sentence.text;
+      }
+    }
+    
+    // Ultimate fallback
+    return selectedText;
+  }
+
+  function showSidePanel(selectedText, completeSentence) {
     if (sidePanel) {
       // Panel already exists, just update the selected text
-      updateSelectedText(selectedText);
+      updateSelectedText(selectedText, completeSentence);
     } else {
       // Create new panel
-      sidePanel = createSidePanel(selectedText);
+      sidePanel = createSidePanel(selectedText, completeSentence);
       document.body.appendChild(sidePanel);
       
       // Animate in
@@ -60,16 +170,25 @@
     }
   }
 
-  function updateSelectedText(selectedText) {
+  function updateSelectedText(selectedText, completeSentence) {
     if (!sidePanel) return;
     
-    const textDisplay = sidePanel.querySelector('.compre-ai-text-display');
+    const selectedTextDisplay = sidePanel.querySelector('.compre-ai-selected-display');
+    const sentenceDisplay = sidePanel.querySelector('.compre-ai-sentence-display');
     const translateBtn = sidePanel.querySelector('.compre-ai-translate-btn');
     const resultDiv = sidePanel.querySelector('#translation-result');
     const errorDiv = sidePanel.querySelector('#error-display');
     
     // Update the displayed text
-    textDisplay.innerHTML = escapeHtml(selectedText);
+    if (selectedTextDisplay) {
+      selectedTextDisplay.innerHTML = escapeHtml(selectedText);
+    }
+    
+    // Update the complete sentence with highlighted selection
+    if (sentenceDisplay && completeSentence) {
+      const highlightedSentence = highlightSelectedInSentence(completeSentence, selectedText);
+      sentenceDisplay.innerHTML = highlightedSentence;
+    }
     
     // Hide previous translation results/errors since text changed
     resultDiv.style.display = 'none';
@@ -85,7 +204,18 @@
     // Remove old event listener and add new one with updated text
     const newTranslateBtn = translateBtn.cloneNode(true);
     translateBtn.parentNode.replaceChild(newTranslateBtn, translateBtn);
-    newTranslateBtn.addEventListener('click', () => translateText(selectedText, sidePanel));
+    newTranslateBtn.addEventListener('click', () => translateText(completeSentence || selectedText, sidePanel));
+  }
+
+  function highlightSelectedInSentence(sentence, selectedText) {
+    if (!sentence || !selectedText) return escapeHtml(sentence || '');
+    
+    const escapedSentence = escapeHtml(sentence);
+    const escapedSelected = escapeHtml(selectedText);
+    
+    // Find and highlight the selected text within the sentence
+    const regex = new RegExp(escapedSelected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    return escapedSentence.replace(regex, '<mark style="background-color: #fff3cd; padding: 1px 2px; border-radius: 2px;">$&</mark>');
   }
 
   function hideSidePanel() {
@@ -100,9 +230,14 @@
     }
   }
 
-  function createSidePanel(selectedText) {
+  function createSidePanel(selectedText, completeSentence) {
     const panel = document.createElement('div');
     panel.className = 'compre-ai-side-panel';
+    
+    // Create highlighted sentence if available
+    const highlightedSentence = completeSentence ? highlightSelectedInSentence(completeSentence, selectedText) : '';
+    const showSentence = completeSentence && completeSentence !== selectedText;
+    
     panel.innerHTML = `
       <div class="compre-ai-panel-header">
         <h3>Compre AI Translator</h3>
@@ -110,14 +245,21 @@
       </div>
       
       <div class="compre-ai-panel-content">
+        ${showSentence ? `
+        <div class="compre-ai-complete-sentence">
+          <label>Complete Sentence:</label>
+          <div class="compre-ai-sentence-display">${highlightedSentence}</div>
+        </div>
+        ` : ''}
+        
         <div class="compre-ai-selected-text">
           <label>Selected Text:</label>
-          <div class="compre-ai-text-display">${escapeHtml(selectedText)}</div>
+          <div class="compre-ai-selected-display">${escapeHtml(selectedText)}</div>
         </div>
         
         <div class="compre-ai-translate-section">
           <button class="compre-ai-translate-btn" id="translate-btn">
-            <span class="btn-text">Translate</span>
+            <span class="btn-text">Translate ${showSentence ? 'Sentence' : 'Text'}</span>
             <span class="btn-spinner" style="display: none;">⟳</span>
           </button>
         </div>
@@ -125,6 +267,7 @@
         <div class="compre-ai-translation-result" id="translation-result" style="display: none;">
           <label>Translation:</label>
           <div class="compre-ai-result-display"></div>
+          <div class="compre-ai-language-info"></div>
         </div>
         
         <div class="compre-ai-error" id="error-display" style="display: none;">
@@ -138,7 +281,7 @@
     closeBtn.addEventListener('click', hideSidePanel);
     
     const translateBtn = panel.querySelector('.compre-ai-translate-btn');
-    translateBtn.addEventListener('click', () => translateText(selectedText, panel));
+    translateBtn.addEventListener('click', () => translateText(completeSentence || selectedText, panel));
 
     // Add styles if not already added
     addStyles();
@@ -367,6 +510,36 @@
         padding: 20px;
       }
       
+      .compre-ai-complete-sentence {
+        margin-bottom: 20px;
+      }
+      
+      .compre-ai-complete-sentence label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+      }
+      
+      .compre-ai-sentence-display {
+        background: #f0f8ff;
+        border: 1px solid #b8d4f0;
+        border-radius: 6px;
+        padding: 12px;
+        color: #333;
+        line-height: 1.6;
+        word-wrap: break-word;
+        max-height: 150px;
+        overflow-y: auto;
+      }
+      
+      .compre-ai-sentence-display mark {
+        background-color: #fff3cd !important;
+        padding: 1px 2px !important;
+        border-radius: 2px !important;
+        font-weight: 600;
+      }
+      
       .compre-ai-selected-text {
         margin-bottom: 20px;
       }
@@ -378,7 +551,7 @@
         color: #333;
       }
       
-      .compre-ai-text-display {
+      .compre-ai-selected-display {
         background: #f5f5f5;
         border: 1px solid #ddd;
         border-radius: 6px;
@@ -469,7 +642,8 @@
       }
       
       /* Handle very long text */
-      .compre-ai-text-display,
+      .compre-ai-selected-display,
+      .compre-ai-sentence-display,
       .compre-ai-result-display {
         max-height: 200px;
         overflow-y: auto;
