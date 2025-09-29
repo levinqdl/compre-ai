@@ -106,6 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         body: JSON.stringify({
           text: testText,
+          completeSentence: testText,
           to: settings.targetLanguage || 'en',
           detect_source: true
         })

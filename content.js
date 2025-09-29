@@ -12,12 +12,13 @@
   let extractSentenceContaining;
   let highlightSelectedInSentence;
   let escapeHtml;
+  let buildTranslationRequestPayload;
 
   // Bootstrap: load helper module then init
   (async () => {
     try {
       const helpers = await import(chrome.runtime.getURL('src/helpers/textProcessing.js'));
-      ({ extractSentenceContaining, highlightSelectedInSentence, escapeHtml } = helpers);
+      ({ extractSentenceContaining, highlightSelectedInSentence, escapeHtml, buildTranslationRequestPayload } = helpers);
     } catch (e) {
       console.error('Failed to load textProcessing helpers, falling back to inline implementations', e);
       // Fallback minimal implementations (only if import fails)
@@ -29,6 +30,17 @@
         .replace(/'/g, "&#039;");
       extractSentenceContaining = (fullText, selectedText) => selectedText || '';
       highlightSelectedInSentence = (sentence, selectedText) => escapeHtml(sentence || '');
+      buildTranslationRequestPayload = ({ selectedText, completeSentence, targetLanguage }) => {
+        const selection = (selectedText || '').trim();
+        const sentence = (completeSentence || '').trim();
+        const text = sentence || selection;
+        return {
+          text,
+          completeSentence: sentence || text,
+          to: targetLanguage || 'en',
+          detect_source: true
+        };
+      };
     }
     init();
   })();
@@ -47,7 +59,7 @@
     console.log('Compre AI content script initialized');
   }
 
-    // Debounced selection change handler
+  // Debounced selection change handler
   function debounceSelectionChange() {
     if (selectionTimeout) {
       clearTimeout(selectionTimeout);
@@ -141,6 +153,10 @@
     const translateBtn = sidePanel.querySelector('.compre-ai-translate-btn');
     const resultDiv = sidePanel.querySelector('#translation-result');
     const errorDiv = sidePanel.querySelector('#error-display');
+    const languageInfo = sidePanel.querySelector('.compre-ai-language-info');
+    const explanationSection = sidePanel.querySelector('#translation-explanation');
+    const explanationDisplay = sidePanel.querySelector('.compre-ai-explanation-display');
+    const modelInfo = sidePanel.querySelector('.compre-ai-model-info');
     
     // Update the displayed text
     if (selectedTextDisplay) {
@@ -156,6 +172,18 @@
     // Hide previous translation results/errors since text changed
     resultDiv.style.display = 'none';
     errorDiv.style.display = 'none';
+    if (languageInfo) {
+      languageInfo.textContent = '';
+      languageInfo.style.display = 'none';
+    }
+    if (explanationSection && explanationDisplay) {
+      explanationSection.style.display = 'none';
+      explanationDisplay.textContent = '';
+    }
+    if (modelInfo) {
+      modelInfo.textContent = '';
+      modelInfo.style.display = 'none';
+    }
     
     // Reset translate button state and update its click handler
     translateBtn.disabled = false;
@@ -165,9 +193,9 @@
     btnSpinner.style.display = 'none';
     
     // Remove old event listener and add new one with updated text
-    const newTranslateBtn = translateBtn.cloneNode(true);
-    translateBtn.parentNode.replaceChild(newTranslateBtn, translateBtn);
-    newTranslateBtn.addEventListener('click', () => translateText(completeSentence || selectedText, sidePanel));
+  const newTranslateBtn = translateBtn.cloneNode(true);
+  translateBtn.parentNode.replaceChild(newTranslateBtn, translateBtn);
+  newTranslateBtn.addEventListener('click', () => translateText({ selectedText, completeSentence }, sidePanel));
   }
 
   // highlightSelectedInSentence now provided by helpers
@@ -221,7 +249,12 @@
         <div class="compre-ai-translation-result" id="translation-result" style="display: none;">
           <label>Translation:</label>
           <div class="compre-ai-result-display"></div>
-          <div class="compre-ai-language-info"></div>
+          <div class="compre-ai-language-info" style="display: none;"></div>
+          <div class="compre-ai-explanation" id="translation-explanation" style="display: none;">
+            <label>Explanation:</label>
+            <div class="compre-ai-explanation-display"></div>
+          </div>
+          <div class="compre-ai-model-info" style="display: none;"></div>
         </div>
         
         <div class="compre-ai-error" id="error-display" style="display: none;">
@@ -235,7 +268,7 @@
     closeBtn.addEventListener('click', hideSidePanel);
     
     const translateBtn = panel.querySelector('.compre-ai-translate-btn');
-    translateBtn.addEventListener('click', () => translateText(completeSentence || selectedText, panel));
+    translateBtn.addEventListener('click', () => translateText({ selectedText, completeSentence }, panel));
 
     // Add styles if not already added
     addStyles();
@@ -243,12 +276,16 @@
     return panel;
   }
 
-  async function translateText(text, panel) {
+  async function translateText({ selectedText, completeSentence }, panel) {
     const translateBtn = panel.querySelector('.compre-ai-translate-btn');
     const btnText = translateBtn.querySelector('.btn-text');
     const btnSpinner = translateBtn.querySelector('.btn-spinner');
     const resultDiv = panel.querySelector('#translation-result');
     const errorDiv = panel.querySelector('#error-display');
+    const languageInfo = panel.querySelector('.compre-ai-language-info');
+    const explanationSection = panel.querySelector('#translation-explanation');
+    const explanationDisplay = panel.querySelector('.compre-ai-explanation-display');
+    const modelInfo = panel.querySelector('.compre-ai-model-info');
     
     // Show loading state
     translateBtn.disabled = true;
@@ -258,15 +295,49 @@
     // Hide previous results/errors
     resultDiv.style.display = 'none';
     errorDiv.style.display = 'none';
+    if (languageInfo) {
+      languageInfo.textContent = '';
+      languageInfo.style.display = 'none';
+    }
+    if (explanationSection && explanationDisplay) {
+      explanationSection.style.display = 'none';
+      explanationDisplay.textContent = '';
+    }
+    if (modelInfo) {
+      modelInfo.textContent = '';
+      modelInfo.style.display = 'none';
+    }
     
     try {
-      const result = await callTranslationAPI(text);
+      const result = await callTranslationAPI({ selectedText, completeSentence });
       
       if (result.success) {
         // Show translation result
         const resultDisplay = panel.querySelector('.compre-ai-result-display');
         
         resultDisplay.textContent = result.translation;
+        if (languageInfo) {
+          const parts = [];
+          if (result.detectedLanguage && result.detectedLanguage.toLowerCase() !== 'unknown') {
+            parts.push(`Detected: ${result.detectedLanguage}`);
+          }
+          const targetLang = result.targetLanguage || result.to;
+          if (targetLang) {
+            parts.push(`Target: ${targetLang}`);
+          }
+          if (parts.length > 0) {
+            languageInfo.textContent = parts.join(' • ');
+            languageInfo.style.display = 'block';
+          }
+        }
+        if (explanationSection && explanationDisplay && result.explanation) {
+          explanationDisplay.textContent = result.explanation;
+          explanationSection.style.display = 'block';
+        }
+        if (modelInfo && result.model) {
+          modelInfo.textContent = `Model: ${result.model}`;
+          modelInfo.style.display = 'block';
+        }
         
         resultDiv.style.display = 'block';
       } else {
@@ -289,7 +360,7 @@
   }
 
   // Translation API call function
-  async function callTranslationAPI(text) {
+  async function callTranslationAPI({ selectedText, completeSentence }) {
     try {
       // Determine API endpoint
       const stored = await chrome.storage.sync.get(['apiEndpoint']);
@@ -306,11 +377,11 @@
       }
 
       // Prepare request payload
-      const requestBody = {
-        text: text,
-        to: TARGET_LANGUAGE || 'en',
-        detect_source: true
-      };
+      const requestBody = buildTranslationRequestPayload({
+        selectedText,
+        completeSentence,
+        targetLanguage: TARGET_LANGUAGE
+      });
 
       // Make API request
       const response = await fetch(API_ENDPOINT, {
@@ -328,13 +399,21 @@
       }
 
       const data = await response.json();
+      const translation = data.translation ?? data.translated_text ?? requestBody.text;
+      const targetLanguage = data.targetLanguage ?? data.target_language ?? requestBody.to ?? TARGET_LANGUAGE;
+      const detectedLanguage = data.detectedLanguage ?? data.detected_language ?? data.source_language ?? null;
+      const explanation = data.explanation ?? data.explanation_text ?? null;
+      const model = data.model ?? data.translation_model ?? null;
 
       return {
         success: true,
-        translation: data.translated_text || data.translation || text,
-        detectedLanguage: data.detected_language || 'unknown',
-        to: data.target_language || TARGET_LANGUAGE,
-        confidence: data.confidence || null
+        translation,
+        explanation,
+        targetLanguage,
+        detectedLanguage,
+        model,
+        to: targetLanguage,
+        confidence: data.confidence ?? null
       };
 
     } catch (error) {
@@ -568,6 +647,39 @@
         line-height: 1.5;
         word-wrap: break-word;
         margin-bottom: 8px;
+      }
+
+      .compre-ai-language-info {
+        font-size: 12px;
+        color: #555;
+        margin-bottom: 10px;
+      }
+
+      .compre-ai-explanation {
+        margin-top: 12px;
+      }
+
+      .compre-ai-explanation label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .compre-ai-explanation-display {
+        background: #fefae8;
+        border: 1px solid #f0d98c;
+        border-radius: 6px;
+        padding: 12px;
+        color: #333;
+        line-height: 1.5;
+        word-wrap: break-word;
+      }
+
+      .compre-ai-model-info {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #555;
       }
       
       .compre-ai-error {

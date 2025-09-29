@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractSentenceContaining, escapeHtml, highlightSelectedInSentence } from '../src/helpers/textProcessing.js';
+import { extractSentenceContaining, escapeHtml, highlightSelectedInSentence, buildTranslationRequestPayload } from '../src/helpers/textProcessing.js';
 
 describe('extractSentenceContaining', () => {
   it('returns the full sentence containing the selection', () => {
@@ -45,5 +45,30 @@ describe('highlightSelectedInSentence', () => {
     const selection = 'case insensitive';
     const result = highlightSelectedInSentence(sentence, selection);
     expect(result.toLowerCase()).toContain('<mark');
+  });
+});
+
+describe('buildTranslationRequestPayload', () => {
+  it('uses complete sentence when provided', () => {
+    const payload = buildTranslationRequestPayload({
+      selectedText: 'hello',
+      completeSentence: 'hello world',
+      targetLanguage: 'pt'
+    });
+    expect(payload.text).toBe('hello world');
+    expect(payload.completeSentence).toBe('hello world');
+    expect(payload.to).toBe('pt');
+    expect(payload.detect_source).toBe(true);
+  });
+
+  it('falls back to selection when sentence is empty', () => {
+    const payload = buildTranslationRequestPayload({
+      selectedText: 'bonjour',
+      completeSentence: '',
+      targetLanguage: null
+    });
+    expect(payload.text).toBe('bonjour');
+    expect(payload.completeSentence).toBe('bonjour');
+    expect(payload.to).toBe('en');
   });
 });

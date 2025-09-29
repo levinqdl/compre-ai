@@ -73,3 +73,15 @@ export function highlightSelectedInSentence(sentence, selectedText) {
   const regex = new RegExp(escapedSelected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
   return escapedSentence.replace(regex, '<mark style="background-color: #fff3cd; padding: 1px 2px; border-radius: 2px;">$&</mark>');
 }
+
+export function buildTranslationRequestPayload({ selectedText, completeSentence, targetLanguage }) {
+  const selection = (selectedText || '').trim();
+  const sentence = (completeSentence || '').trim();
+  const text = sentence || selection;
+  return {
+    text,
+    completeSentence: sentence || text,
+    to: targetLanguage || 'en',
+    detect_source: true
+  };
+}
