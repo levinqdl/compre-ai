@@ -8,6 +8,13 @@
     "prep:dev": "cp config.dev.js config.js",
     "prep:prod": "cp config.prod.js config.js",
     "zip:dev": "npm run clean && npm run prep:dev && zip -r dist/compre-ai-dev.zip . -x 'dist/*' 'config.prod.js' '.git*'",
-    "zip:prod": "npm run clean && npm run prep:prod && zip -r dist/compre-ai-prod.zip . -x 'dist/*' 'config.dev.js' '.git*'"
+    "zip:prod": "npm run clean && npm run prep:prod && zip -r dist/compre-ai-prod.zip . -x 'dist/*' 'config.dev.js' '.git*'",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "jsdom": "^27.0.0",
+    "vitest": "^3.2.4"
   }
 }

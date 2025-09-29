@@ -197,6 +197,38 @@ If you encounter any issues or have questions:
 
 **Made with ❤️ for better web browsing**
 
+## 🧪 Testing
+
+This project uses Vitest for unit testing of pure helper functions extracted from the content script.
+
+### Run Tests
+
+```
+npm test
+```
+
+Run in watch mode while developing:
+
+```
+npm run test:watch
+```
+
+Generate a coverage report (outputs to `coverage/`):
+
+```
+npm run test:coverage
+```
+
+### Test Location
+
+- Helper functions live in `src/helpers/` (e.g. `textProcessing.js`)
+- Tests live in `test/` and use the same relative import paths
+
+### Adding More Tests
+
+When you add new pure logic to `content.js`, consider extracting it to a helper module so it can be tested without a Chrome extension runtime. Avoid direct `chrome.*` calls in helpers; pass required values as parameters.
+
+
 ## 🌍 Environment Configuration (API Base URL)
 
 This extension supports different API base URLs for development and production without a bundler using a lightweight config swap pattern:
