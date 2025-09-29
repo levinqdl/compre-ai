@@ -30,12 +30,25 @@ export function extractSentenceContaining(fullText, selectedText) {
       sentences.push({ text: lastSentence, startIndex: lastIndex, endIndex: cleanText.length });
     }
   }
-  for (const sentence of sentences) {
+  const selectedEnd = selectedIndex + cleanSelected.length;
+  for (let i = 0; i < sentences.length; i += 1) {
+    const sentence = sentences[i];
     if (selectedIndex >= sentence.startIndex && selectedIndex < sentence.endIndex) {
-      return sentence.text;
+      if (selectedEnd <= sentence.endIndex) {
+        return sentence.text;
+      }
+      const combined = [sentence.text];
+      let coverageEnd = sentence.endIndex;
+      let nextIndex = i + 1;
+      while (selectedEnd > coverageEnd && nextIndex < sentences.length) {
+        const nextSentence = sentences[nextIndex];
+        combined.push(nextSentence.text);
+        coverageEnd = nextSentence.endIndex;
+        nextIndex += 1;
+      }
+      return combined.join(' ');
     }
   }
-  const selectedEnd = selectedIndex + cleanSelected.length;
   for (const sentence of sentences) {
     if (selectedIndex < sentence.endIndex && selectedEnd > sentence.startIndex) {
       return sentence.text;

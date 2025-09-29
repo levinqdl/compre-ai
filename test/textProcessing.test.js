@@ -14,6 +14,13 @@ describe('extractSentenceContaining', () => {
     const selected = 'missing';
     expect(extractSentenceContaining(text, selected)).toBe(selected);
   });
+
+  it('returns all sentences overlapped by the selection span', () => {
+    const text = 'AI is evolving fast. It bridges gaps between industries. Collaboration improves.';
+    const selected = 'fast. It bridges gaps between';
+    const result = extractSentenceContaining(text, selected);
+    expect(result).toBe('AI is evolving fast. It bridges gaps between industries.');
+  });
 });
 
 describe('escapeHtml', () => {
