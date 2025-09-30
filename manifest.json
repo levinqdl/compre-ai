@@ -5,7 +5,12 @@
   "description": "A simple Chrome extension to translate selected text on any webpage",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://*/*"
   ],
   "action": {
     "default_popup": "popup.html",

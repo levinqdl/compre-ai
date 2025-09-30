@@ -40,7 +40,7 @@
         return {
           text,
           completeSentence: sentence || text,
-          to: targetLanguage || 'en',
+          to: targetLanguage || 'zh',
           detect_source: true
         };
       };
@@ -414,18 +414,9 @@
   async function callTranslationAPI({ selectedText, completeSentence }) {
     try {
       // Determine API endpoint
-      const stored = await chrome.storage.sync.get(['apiEndpoint']);
-      const base = stored.apiEndpoint || (typeof globalThis !== 'undefined' && globalThis.API_BASE_URL) || 'https://your-translation-api.com';
+      const base = (typeof globalThis !== 'undefined' && globalThis.API_BASE_URL) || 'https://your-translation-api.com';
       const API_ENDPOINT = base.replace(/\/$/, '') + '/translate';
-      const API_KEY = await getApiKey();
       const TARGET_LANGUAGE = await getTargetLanguage();
-      
-      if (!API_KEY) {
-        return {
-          success: false,
-          error: 'API key not configured. Please set up your translation API key in extension settings.'
-        };
-      }
 
       // Prepare request payload
       const requestBody = buildTranslationRequestPayload({
@@ -434,12 +425,11 @@
         targetLanguage: TARGET_LANGUAGE
       });
 
-      // Make API request
+      // Make API request with cookies for authentication
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
           'Accept': 'application/json'
         },
         body: JSON.stringify(requestBody)
@@ -476,26 +466,9 @@
     }
   }
 
-  // Get API key from Chrome storage
-  async function getApiKey() {
-    try {
-      const result = await chrome.storage.sync.get(['translationApiKey']);
-      return result.translationApiKey || null;
-    } catch (error) {
-      console.error('Error getting API key:', error);
-      return null;
-    }
-  }
-
-  // Get target language from Chrome storage
+  // Get target language (hard-coded to Chinese)
   async function getTargetLanguage() {
-    try {
-      const result = await chrome.storage.sync.get(['targetLanguage']);
-      return result.targetLanguage || 'en';
-    } catch (error) {
-      console.error('Error getting target language:', error);
-      return 'en';
-    }
+    return 'zh';
   }
 
   // Handle messages from popup/background

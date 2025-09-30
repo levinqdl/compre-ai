@@ -77,11 +77,11 @@ export function highlightSelectedInSentence(sentence, selectedText) {
 export function buildTranslationRequestPayload({ selectedText, completeSentence, targetLanguage }) {
   const selection = (selectedText || '').trim();
   const sentence = (completeSentence || '').trim();
-  const text = sentence || selection;
+  const text = selection;
   return {
     text,
     completeSentence: sentence || text,
-    to: targetLanguage || 'en',
+    to: targetLanguage || 'zh',
     detect_source: true
   };
 }

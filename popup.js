@@ -2,8 +2,12 @@
 
 document.addEventListener('DOMContentLoaded', function() {
   // Get references to UI elements
-  const translateText = document.getElementById('translate-text');
-  const settingsBtn = document.getElementById('settings-btn');
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const loggedOutView = document.getElementById('logged-out-view');
+  const loggedInView = document.getElementById('logged-in-view');
+  const userInfo = document.getElementById('user-info');
+  const statusMessage = document.getElementById('status-message');
   const siteToggle = document.getElementById('site-toggle');
   const siteNameDisplay = document.getElementById('site-name');
   const siteToggleHint = document.getElementById('site-toggle-hint');
@@ -12,13 +16,16 @@ document.addEventListener('DOMContentLoaded', function() {
   let cachedDisabledSites = [];
   let siteEnabled = true;
 
-  // Feature click handlers
-  translateText.addEventListener('click', async () => {
-    await executeFeature('translate-text', 'Translating text...');
+  // Load authentication status
+  loadAuthStatus();
+
+  // Authentication handlers
+  loginBtn.addEventListener('click', async () => {
+    await handleLogin();
   });
 
-  settingsBtn.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'chrome-extension://' + chrome.runtime.id + '/settings.html' });
+  logoutBtn.addEventListener('click', async () => {
+    await handleLogout();
   });
 
   if (siteToggle) {
@@ -27,80 +34,6 @@ document.addEventListener('DOMContentLoaded', function() {
       disableToggle('Unavailable on this page');
     });
     siteToggle.addEventListener('change', handleSiteToggleChange);
-  }
-
-  // Execute feature function
-  async function executeFeature(action, loadingMessage) {
-    try {
-      if (!siteEnabled) {
-        showNotification('Compre AI is disabled on this site.', 'error');
-        return;
-      }
-      // Show loading state
-      showNotification(loadingMessage, 'info');
-      
-      // Get current active tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      if (!tab) {
-        showNotification('No active tab found', 'error');
-        return;
-      }
-
-      // Send message to content script
-      const response = await chrome.tabs.sendMessage(tab.id, {
-        action: action,
-        url: tab.url,
-        title: tab.title
-      });
-
-      if (response && response.success) {
-        showNotification(response.message || 'Translation completed successfully', 'success');
-      } else {
-        showNotification(response?.error || 'Translation failed', 'error');
-      }
-    } catch (error) {
-      console.error('Translation error:', error);
-      showNotification('Error: ' + error.message, 'error');
-    }
-  }
-
-  // Show notification function
-  function showNotification(message, type = 'info') {
-    // Remove any existing notifications
-    const existingNotification = document.querySelector('.notification');
-    if (existingNotification) {
-      existingNotification.remove();
-    }
-
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    notification.style.cssText = `
-      position: fixed;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 10px 15px;
-      border-radius: 6px;
-      font-size: 12px;
-      z-index: 1000;
-      max-width: 250px;
-      text-align: center;
-      ${type === 'success' ? 'background: #4CAF50; color: white;' : 
-        type === 'error' ? 'background: #f44336; color: white;' : 
-        'background: rgba(255, 255, 255, 0.9); color: #333;'}
-    `;
-
-    document.body.appendChild(notification);
-
-    // Auto-remove notification after 3 seconds
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.remove();
-      }
-    }, 3000);
   }
 
   async function initSiteToggle() {
@@ -210,6 +143,95 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (siteToggleHint) {
       siteToggleHint.textContent = message;
+    }
+  }
+
+  // Authentication functions
+  async function loadAuthStatus() {
+    try {
+      // Check authentication using the /api/verify endpoint
+      const loginUrl = (typeof window !== 'undefined' ? window.API_BASE_URL : null) || 'https://your-translation-api.com';
+      
+      const response = await fetch(`${loginUrl}/api/verify`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.authenticated && data.user) {
+          showLoggedInState(data.user);
+        } else {
+          showLoggedOutState();
+        }
+      } else {
+        showLoggedOutState();
+      }
+    } catch (error) {
+      console.error('Error checking auth status:', error);
+      showLoggedOutState();
+    }
+  }
+
+  async function handleLogin() {
+    try {
+      showAuthStatus('Redirecting to login...', 'info');
+      
+      const loginUrl = (typeof window !== 'undefined' ? window.API_BASE_URL : null) || 'https://your-translation-api.com';
+      
+      // Open login page in the current tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      await chrome.tabs.update(tab.id, { url: `${loginUrl}?client_type=extension` });
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      showAuthStatus('❌ Failed to redirect to login page.', 'error');
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      const loginUrl = (typeof window !== 'undefined' ? window.API_BASE_URL : null) || 'https://your-translation-api.com';
+      
+      // Open login page for user to logout there
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      await chrome.tabs.update(tab.id, { url: `${loginUrl}?client_type=extension` });
+      
+    } catch (error) {
+      console.error('Logout error:', error);
+      showAuthStatus('❌ Failed to redirect to logout page.', 'error');
+    }
+  }
+
+  function showLoggedInState(userData) {
+    loggedOutView.style.display = 'none';
+    loggedInView.style.display = 'block';
+    
+    if (userData && userData.name) {
+      userInfo.innerHTML = `Welcome, ${userData.name}!`;
+      if (userData.email) {
+        userInfo.innerHTML += `<br><span style="font-size: 10px; opacity: 0.7;">${userData.email}</span>`;
+      }
+    } else {
+      userInfo.innerHTML = 'Welcome!';
+    }
+  }
+
+  function showLoggedOutState() {
+    loggedOutView.style.display = 'block';
+    loggedInView.style.display = 'none';
+  }
+
+  function showAuthStatus(message, type) {
+    statusMessage.textContent = message;
+    statusMessage.className = `status-message ${type}`;
+    
+    // Auto-hide success messages after 3 seconds
+    if (type === 'success') {
+      setTimeout(() => {
+        statusMessage.textContent = '';
+        statusMessage.className = 'status-message';
+      }, 3000);
     }
   }
 });

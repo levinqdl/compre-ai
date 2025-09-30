@@ -172,6 +172,26 @@
     .btn:hover {
       background: rgba(255, 255, 255, 0.3);
     }
+    
+    .status-message {
+      font-size: 11px;
+      padding: 6px;
+      border-radius: 4px;
+      margin-top: 8px;
+      text-align: center;
+    }
+    
+    .status-message.success {
+      background: rgba(76, 175, 80, 0.8);
+    }
+    
+    .status-message.error {
+      background: rgba(244, 67, 54, 0.8);
+    }
+    
+    .status-message.info {
+      background: rgba(33, 150, 243, 0.8);
+    }
   </style>
 </head>
 <body>
@@ -195,14 +215,23 @@
       <div class="toggle-hint" id="site-toggle-hint"></div>
     </div>
 
-    <div class="feature" id="translate-text">
-      <div class="feature-icon">🌐</div>
-      <div class="feature-text">Translate Selected Text</div>
-    </div>
-    
-    <div class="feature" id="settings-btn" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 15px;">
-      <div class="feature-icon">⚙️</div>
-      <div class="feature-text">Settings</div>
+    <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 15px;">
+      <div id="auth-section">
+        <div id="logged-out-view">
+          <div class="feature" id="login-btn">
+            <div class="feature-icon">🔐</div>
+            <div class="feature-text">Login to Enable Translation</div>
+          </div>
+        </div>
+        <div id="logged-in-view" style="display: none;">
+          <div id="user-info" style="font-size: 12px; margin-bottom: 8px; opacity: 0.9;"></div>
+          <div class="feature" id="logout-btn">
+            <div class="feature-icon">🚪</div>
+            <div class="feature-text">Logout</div>
+          </div>
+        </div>
+      </div>
+      <div id="status-message"></div>
     </div>
   </div>
   
