@@ -7,6 +7,9 @@
   let isSelecting = false;
   let sidePanel = null;
   let selectionTimeout = null;
+  const CURRENT_HOSTNAME = window.location.hostname.toLowerCase();
+  const SITE_PREF_KEY = 'disabledSites';
+  let siteEnabled = true;
 
   // Helper functions loaded dynamically to reuse tested module code
   let extractSentenceContaining;
@@ -42,10 +45,18 @@
         };
       };
     }
-    init();
+    init().catch((error) => console.error('Failed to initialize Compre AI content script', error));
   })();
 
-  function init() {
+  async function init() {
+    await refreshSitePreference();
+
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === 'sync' && Object.prototype.hasOwnProperty.call(changes, SITE_PREF_KEY)) {
+        applySitePreference(changes[SITE_PREF_KEY]?.newValue || []);
+      }
+    });
+
     // Listen for text selection events
     // document.addEventListener('mouseup', handleTextSelection);
     document.addEventListener('selectionchange', debounceSelectionChange);
@@ -59,13 +70,42 @@
     console.log('Compre AI content script initialized');
   }
 
+  async function refreshSitePreference() {
+    try {
+      const stored = await chrome.storage.sync.get([SITE_PREF_KEY]);
+      applySitePreference(stored[SITE_PREF_KEY] || []);
+    } catch (error) {
+      console.error('Error loading site preference', error);
+      siteEnabled = true;
+    }
+  }
+
+  function applySitePreference(list) {
+    const normalized = Array.isArray(list)
+      ? list.map((item) => (item || '').toString().toLowerCase().trim()).filter(Boolean)
+      : [];
+    siteEnabled = !normalized.includes(CURRENT_HOSTNAME);
+    if (!siteEnabled) {
+      hideSidePanel();
+    }
+  }
+
   // Debounced selection change handler
   function debounceSelectionChange() {
     if (selectionTimeout) {
       clearTimeout(selectionTimeout);
     }
+
+    if (!siteEnabled) {
+      hideSidePanel();
+      return;
+    }
     
     selectionTimeout = setTimeout(() => {
+      if (!siteEnabled) {
+        hideSidePanel();
+        return;
+      }
       const { selectedText, completeSentence } = getCompleteSentence();
       if (selectedText && selectedText.length > 0) {
         showSidePanel(selectedText, completeSentence);
@@ -130,6 +170,7 @@
   // extractSentenceContaining now provided by helpers
 
   function showSidePanel(selectedText, completeSentence) {
+    if (!siteEnabled) return;
     if (sidePanel) {
       // Panel already exists, just update the selected text
       updateSelectedText(selectedText, completeSentence);
@@ -282,11 +323,22 @@
     const btnSpinner = translateBtn.querySelector('.btn-spinner');
     const resultDiv = panel.querySelector('#translation-result');
     const errorDiv = panel.querySelector('#error-display');
+    const errorMessage = panel.querySelector('.compre-ai-error-message');
     const languageInfo = panel.querySelector('.compre-ai-language-info');
     const explanationSection = panel.querySelector('#translation-explanation');
     const explanationDisplay = panel.querySelector('.compre-ai-explanation-display');
     const modelInfo = panel.querySelector('.compre-ai-model-info');
     
+    if (!siteEnabled) {
+      resultDiv.style.display = 'none';
+      errorDiv.style.display = 'block';
+      errorMessage.textContent = 'Compre AI is disabled on this site.';
+      translateBtn.disabled = false;
+      btnText.style.display = 'inline';
+      btnSpinner.style.display = 'none';
+      return;
+    }
+
     // Show loading state
     translateBtn.disabled = true;
     btnText.style.display = 'none';
@@ -348,7 +400,6 @@
       }
     } catch (error) {
       // Show error
-      const errorMessage = panel.querySelector('.compre-ai-error-message');
       errorMessage.textContent = 'Translation service error: ' + error.message;
       errorDiv.style.display = 'block';
     }
@@ -450,6 +501,10 @@
   // Handle messages from popup/background
   async function handleMessage(request, sender, sendResponse) {
     try {
+      if (!siteEnabled) {
+        sendResponse({ success: false, error: 'Compre AI is disabled on this site.' });
+        return;
+      }
       switch (request.action) {
         case 'get-selected-text':
           const selectedText = getSelectedText();

@@ -10,6 +10,7 @@ A powerful AI-enhanced Chrome extension that helps you analyze web pages, summar
 - **📈 Data Extraction**: Automatically extract emails, phone numbers, dates, prices, and addresses from web pages
 - **⚡ Context Menu Integration**: Right-click on selected text for quick AI actions
 - **🎨 Beautiful UI**: Modern, intuitive interface with gradient design
+- **🔒 Per-Site Control**: Toggle the translator on or off for individual domains directly from the popup
 
 ## 🚀 Installation
 
@@ -55,6 +56,7 @@ To enable advanced AI features:
 ### Basic Usage
 
 1. **Click the extension icon** in your Chrome toolbar
+2. **Review the site toggle** to decide whether the translator should run on the current domain
 2. **Select a feature** from the popup menu:
    - Analyze Current Page
    - Summarize Selected Text (select text first)
@@ -69,6 +71,10 @@ To enable advanced AI features:
    - Analyze with Compre AI
    - Summarize with Compre AI
    - Translate with Compre AI
+
+### Per-Site Enablement
+
+Use the toggle at the top of the popup to enable or disable Compre AI on the current domain. Changes take effect immediately and persist across sessions.
 
 ## 📁 Project Structure
 
