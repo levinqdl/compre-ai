@@ -10,36 +10,92 @@
   const CURRENT_HOSTNAME = window.location.hostname.toLowerCase();
   const SITE_PREF_KEY = 'disabledSites';
   let siteEnabled = true;
+  let accumulatedSelectedTexts = [];
+  let currentSentenceRange = null;
 
   // Helper functions loaded dynamically to reuse tested module code
   let extractSentenceContaining;
   let highlightSelectedInSentence;
   let escapeHtml;
   let buildTranslationRequestPayload;
+  let findSentenceRangeContaining;
+  let extractTextFromRange;
+  let createRangeFromOffsets;
 
   // Bootstrap: load helper module then init
   (async () => {
     try {
       const helpers = await import(chrome.runtime.getURL('src/helpers/textProcessing.js'));
-      ({ extractSentenceContaining, highlightSelectedInSentence, escapeHtml, buildTranslationRequestPayload } = helpers);
+      ({ extractSentenceContaining, highlightSelectedInSentence, escapeHtml, buildTranslationRequestPayload, findSentenceRangeContaining, extractTextFromRange, createRangeFromOffsets } = helpers);
     } catch (e) {
       console.error('Failed to load textProcessing helpers, falling back to inline implementations', e);
-      // Fallback minimal implementations (only if import fails)
+      
+      const extractText = (input) => {
+        if (!input) return '';
+        if (typeof input === 'string') return input;
+        if (input.toString) return input.toString();
+        return '';
+      };
+      
       escapeHtml = (unsafe) => unsafe
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
-      extractSentenceContaining = (fullText, selectedText) => selectedText || '';
-      highlightSelectedInSentence = (sentence, selectedText) => escapeHtml(sentence || '');
+      
+      extractSentenceContaining = (fullText, selectedText) => extractText(selectedText);
+      extractTextFromRange = (range) => range ? range.toString().trim() : '';
+      
+      findSentenceRangeContaining = (textNode, startOffset, endOffset) => {
+        if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return null;
+        return { startOffset, endOffset };
+      };
+      
+      createRangeFromOffsets = (textNode, startOffset, endOffset) => {
+        if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return null;
+        const range = document.createRange();
+        range.setStart(textNode, startOffset);
+        range.setEnd(textNode, endOffset);
+        return range;
+      };
+      
+      highlightSelectedInSentence = (sentence, selectedText) => {
+        const sentenceStr = extractText(sentence);
+        if (!sentenceStr) return escapeHtml('');
+        if (!selectedText || (Array.isArray(selectedText) && selectedText.length === 0)) {
+          return escapeHtml(sentenceStr);
+        }
+        
+        let escapedSentence = escapeHtml(sentenceStr);
+        const textArray = Array.isArray(selectedText) ? selectedText : [selectedText];
+        
+        textArray.forEach(text => {
+          const textStr = extractText(text);
+          if (textStr && textStr.trim()) {
+            const escapedSelected = escapeHtml(textStr);
+            const regex = new RegExp(escapedSelected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            escapedSentence = escapedSentence.replace(regex, '<mark style="background-color: #fff3cd; padding: 1px 2px; border-radius: 2px;">$&</mark>');
+          }
+        });
+        
+        return escapedSentence;
+      };
+      
       buildTranslationRequestPayload = ({ selectedText, completeSentence, targetLanguage }) => {
-        const selection = (selectedText || '').trim();
-        const sentence = (completeSentence || '').trim();
-        const text = sentence || selection;
+        const sentence = extractText(completeSentence);
+        
+        let textArray;
+        if (Array.isArray(selectedText)) {
+          textArray = selectedText.map(t => extractText(t)).filter(t => t.length > 0);
+        } else {
+          const singleText = extractText(selectedText);
+          textArray = singleText ? [singleText] : [];
+        }
+        
         return {
-          text,
-          completeSentence: sentence || text,
+          text: textArray,
+          completeSentence: sentence || (textArray.length > 0 ? textArray.join(' ') : ''),
           to: targetLanguage || 'zh',
           detect_source: true
         };
@@ -98,19 +154,35 @@
 
     if (!siteEnabled) {
       hideSidePanel();
+      accumulatedSelectedTexts = [];
       return;
     }
     
     selectionTimeout = setTimeout(() => {
       if (!siteEnabled) {
         hideSidePanel();
+        accumulatedSelectedTexts = [];
+        currentSentenceRange = null;
         return;
       }
-      const { selectedText, completeSentence } = getCompleteSentence();
-      if (selectedText && selectedText.length > 0) {
-        showSidePanel(selectedText, completeSentence);
+      const { selectedRanges, sentenceRange } = getCompleteSentence();
+      if (selectedRanges && selectedRanges.length > 0) {
+        if (sentenceRange && !isSameSentenceRange(currentSentenceRange, sentenceRange)) {
+          accumulatedSelectedTexts = [];
+          currentSentenceRange = sentenceRange;
+        }
+        
+        selectedRanges.forEach(range => {
+          const text = extractTextFromRange(range);
+          if (text && !accumulatedSelectedTexts.includes(text)) {
+            accumulatedSelectedTexts.push(text);
+          }
+        });
+        showSidePanel(accumulatedSelectedTexts, sentenceRange);
       } else {
-        hideSidePanel();
+        if (accumulatedSelectedTexts.length === 0) {
+          hideSidePanel();
+        }
       }
     }, 300);
   }
@@ -123,36 +195,180 @@
   function getCompleteSentence() {
     const selection = window.getSelection();
     if (!selection.rangeCount || selection.toString().trim() === '') {
-      return { selectedText: '', completeSentence: '' };
+      return { selectedRanges: [], sentenceRange: null };
     }
 
-    const selectedText = selection.toString().trim();
-    const range = selection.getRangeAt(0);
+    const selectedRanges = [];
+    const fullSelectionText = selection.toString().trim();
     
-    // Get the text content of the container element
-    let container = range.commonAncestorContainer;
+    for (let i = 0; i < selection.rangeCount; i++) {
+      const range = selection.getRangeAt(i);
+      if (range.toString().trim()) {
+        selectedRanges.push(range.cloneRange());
+      }
+    }
     
-    // If it's a text node, get its parent element
+    if (selectedRanges.length === 0) {
+      return { selectedRanges: [], sentenceRange: null };
+    }
+    
+    const primaryRange = selectedRanges[0];
+    let startContainer = primaryRange.startContainer;
+    let endContainer = primaryRange.endContainer;
+    
+    if (startContainer.nodeType !== Node.TEXT_NODE) {
+      startContainer = getFirstTextNode(startContainer) || startContainer;
+    }
+    if (endContainer.nodeType !== Node.TEXT_NODE) {
+      endContainer = getLastTextNode(endContainer) || endContainer;
+    }
+    
+    if (startContainer.nodeType !== Node.TEXT_NODE || endContainer.nodeType !== Node.TEXT_NODE) {
+      return { selectedRanges, sentenceRange: null };
+    }
+    
+    let container = primaryRange.commonAncestorContainer;
     if (container.nodeType === Node.TEXT_NODE) {
       container = container.parentElement;
     }
     
-    // Find the closest block-level element or paragraph
     while (container && !isBlockElement(container) && container.parentElement) {
       container = container.parentElement;
     }
     
     if (!container) {
-      return { selectedText, completeSentence: selectedText };
+      return { selectedRanges, sentenceRange: null };
     }
     
-    // Get all text content from the container
-    const fullText = container.textContent || container.innerText || '';
+    const fullText = container.textContent || '';
+    const completeSentence = extractSentenceContaining(fullText, fullSelectionText);
     
-    // Find the sentence boundaries around the selected text
-    const completeSentence = extractSentenceContaining(fullText, selectedText);
+    if (completeSentence && completeSentence.trim() !== fullSelectionText.trim()) {
+      const sentenceRange = document.createRange();
+      const textNodes = getTextNodesIn(container);
+      let currentOffset = 0;
+      let sentenceStart = null;
+      let sentenceEnd = null;
+      
+      const normalizedFullText = fullText.replace(/\s+/g, ' ');
+      const normalizedSentence = completeSentence.replace(/\s+/g, ' ');
+      const sentenceStartInFull = normalizedFullText.indexOf(normalizedSentence);
+      
+      if (sentenceStartInFull === -1) {
+        return { selectedRanges, sentenceRange: primaryRange.cloneRange() };
+      }
+      
+      const sentenceEndInFull = sentenceStartInFull + normalizedSentence.length;
+      
+      let normalizedOffset = 0;
+      
+      for (const textNode of textNodes) {
+        const nodeText = textNode.textContent;
+        const nodeLength = nodeText.length;
+        const normalizedNodeText = nodeText.replace(/\s+/g, ' ');
+        const normalizedNodeLength = normalizedNodeText.length;
+        
+        if (sentenceStart === null && normalizedOffset + normalizedNodeLength > sentenceStartInFull) {
+          const offsetInNormalized = sentenceStartInFull - normalizedOffset;
+          const offsetInOriginal = mapNormalizedToOriginal(nodeText, offsetInNormalized);
+          sentenceStart = {
+            node: textNode,
+            offset: offsetInOriginal
+          };
+        }
+        
+        if (sentenceStart !== null && sentenceEnd === null && normalizedOffset + normalizedNodeLength >= sentenceEndInFull) {
+          const offsetInNormalized = sentenceEndInFull - normalizedOffset;
+          const offsetInOriginal = mapNormalizedToOriginal(nodeText, offsetInNormalized);
+          sentenceEnd = {
+            node: textNode,
+            offset: offsetInOriginal
+          };
+          break;
+        }
+        
+        currentOffset += nodeLength;
+        normalizedOffset += normalizedNodeLength;
+      }
+      
+      if (sentenceStart && sentenceEnd) {
+        sentenceRange.setStart(sentenceStart.node, sentenceStart.offset);
+        sentenceRange.setEnd(sentenceEnd.node, sentenceEnd.offset);
+        return { selectedRanges, sentenceRange };
+      }
+    }
     
-    return { selectedText, completeSentence };
+    return { selectedRanges, sentenceRange: primaryRange.cloneRange() };
+  }
+  
+  function mapNormalizedToOriginal(text, normalizedOffset) {
+    let originalOffset = 0;
+    let normalizedCount = 0;
+    let inWhitespace = false;
+    
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const isWhitespace = /\s/.test(char);
+      
+      if (isWhitespace) {
+        if (!inWhitespace) {
+          normalizedCount++;
+          inWhitespace = true;
+          if (normalizedCount >= normalizedOffset) {
+            return i;
+          }
+        }
+      } else {
+        normalizedCount++;
+        inWhitespace = false;
+        if (normalizedCount >= normalizedOffset) {
+          return i;
+        }
+      }
+    }
+    
+    return text.length;
+  }
+  
+  function getFirstTextNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node;
+    for (const child of node.childNodes) {
+      const textNode = getFirstTextNode(child);
+      if (textNode) return textNode;
+    }
+    return null;
+  }
+  
+  function getLastTextNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node;
+    for (let i = node.childNodes.length - 1; i >= 0; i--) {
+      const textNode = getLastTextNode(node.childNodes[i]);
+      if (textNode) return textNode;
+    }
+    return null;
+  }
+  
+  function getTextNodesIn(node) {
+    const textNodes = [];
+    if (node.nodeType === Node.TEXT_NODE) {
+      textNodes.push(node);
+    } else {
+      for (const child of node.childNodes) {
+        textNodes.push(...getTextNodesIn(child));
+      }
+    }
+    return textNodes;
+  }
+
+  function isSameSentenceRange(range1, range2) {
+    if (!range1 || !range2) return false;
+    
+    try {
+      return range1.compareBoundaryPoints(Range.START_TO_START, range2) === 0 &&
+             range1.compareBoundaryPoints(Range.END_TO_END, range2) === 0;
+    } catch (e) {
+      return false;
+    }
   }
 
   function isBlockElement(element) {
@@ -169,28 +385,26 @@
 
   // extractSentenceContaining now provided by helpers
 
-  function showSidePanel(selectedText, completeSentence) {
+  function showSidePanel(selectedText, sentenceRange) {
     if (!siteEnabled) return;
     if (sidePanel) {
-      // Panel already exists, just update the selected text
-      updateSelectedText(selectedText, completeSentence);
+      updateSelectedText(selectedText, sentenceRange);
     } else {
-      // Create new panel
-      sidePanel = createSidePanel(selectedText, completeSentence);
+      sidePanel = createSidePanel(selectedText, sentenceRange);
       document.body.appendChild(sidePanel);
       
-      // Animate in
       setTimeout(() => {
         sidePanel.classList.add('compre-ai-panel-visible');
       }, 10);
     }
   }
 
-  function updateSelectedText(selectedText, completeSentence) {
+  function updateSelectedText(selectedText, sentenceRange) {
     if (!sidePanel) return;
     
     const selectedTextDisplay = sidePanel.querySelector('.compre-ai-selected-display');
     const sentenceDisplay = sidePanel.querySelector('.compre-ai-sentence-display');
+    const sentenceContainer = sidePanel.querySelector('.compre-ai-complete-sentence');
     const translateBtn = sidePanel.querySelector('.compre-ai-translate-btn');
     const resultDiv = sidePanel.querySelector('#translation-result');
     const errorDiv = sidePanel.querySelector('#error-display');
@@ -199,18 +413,35 @@
     const explanationDisplay = sidePanel.querySelector('.compre-ai-explanation-display');
     const modelInfo = sidePanel.querySelector('.compre-ai-model-info');
     
-    // Update the displayed text
     if (selectedTextDisplay) {
-      selectedTextDisplay.innerHTML = escapeHtml(selectedText);
+      const displayText = Array.isArray(selectedText) 
+        ? selectedText.map(t => escapeHtml(t)).join(' • ')
+        : escapeHtml(selectedText);
+      selectedTextDisplay.innerHTML = displayText;
     }
     
-    // Update the complete sentence with highlighted selection
-    if (sentenceDisplay && completeSentence) {
-      const highlightedSentence = highlightSelectedInSentence(completeSentence, selectedText);
-      sentenceDisplay.innerHTML = highlightedSentence;
+    if (sentenceRange) {
+      const sentenceText = extractTextFromRange(sentenceRange);
+      const selectedTextStr = Array.isArray(selectedText) ? selectedText.join(' ') : selectedText;
+      const showSentence = sentenceText && sentenceText.trim() !== selectedTextStr.trim();
+      
+      if (sentenceContainer) {
+        sentenceContainer.style.display = showSentence ? 'block' : 'none';
+      }
+      
+      if (sentenceDisplay && showSentence) {
+        const highlightedSentence = highlightSelectedInSentence(sentenceRange, selectedText);
+        sentenceDisplay.innerHTML = highlightedSentence;
+      }
+      
+      const btnText = translateBtn.querySelector('.btn-text');
+      if (btnText) {
+        btnText.textContent = `Translate ${showSentence ? 'Sentence' : 'Text'}`;
+      }
+    } else if (sentenceContainer) {
+      sentenceContainer.style.display = 'none';
     }
     
-    // Hide previous translation results/errors since text changed
     resultDiv.style.display = 'none';
     errorDiv.style.display = 'none';
     if (languageInfo) {
@@ -226,17 +457,19 @@
       modelInfo.style.display = 'none';
     }
     
-    // Reset translate button state and update its click handler
     translateBtn.disabled = false;
-    const btnText = translateBtn.querySelector('.btn-text');
     const btnSpinner = translateBtn.querySelector('.btn-spinner');
-    btnText.style.display = 'inline';
-    btnSpinner.style.display = 'none';
+    const btnTextElem = translateBtn.querySelector('.btn-text');
+    if (btnTextElem) {
+      btnTextElem.style.display = 'inline';
+    }
+    if (btnSpinner) {
+      btnSpinner.style.display = 'none';
+    }
     
-    // Remove old event listener and add new one with updated text
-  const newTranslateBtn = translateBtn.cloneNode(true);
-  translateBtn.parentNode.replaceChild(newTranslateBtn, translateBtn);
-  newTranslateBtn.addEventListener('click', () => translateText({ selectedText, completeSentence }, sidePanel));
+    const newTranslateBtn = translateBtn.cloneNode(true);
+    translateBtn.parentNode.replaceChild(newTranslateBtn, translateBtn);
+    newTranslateBtn.addEventListener('click', () => translateText({ selectedText, sentenceRange }, sidePanel));
   }
 
   // highlightSelectedInSentence now provided by helpers
@@ -249,17 +482,25 @@
           sidePanel.parentNode.removeChild(sidePanel);
         }
         sidePanel = null;
+        accumulatedSelectedTexts = [];
+        currentSentenceRange = null;
       }, 300);
     }
   }
 
-  function createSidePanel(selectedText, completeSentence) {
+  function createSidePanel(selectedText, sentenceRange) {
     const panel = document.createElement('div');
     panel.className = 'compre-ai-side-panel';
     
-    // Create highlighted sentence if available
-    const highlightedSentence = completeSentence ? highlightSelectedInSentence(completeSentence, selectedText) : '';
-    const showSentence = completeSentence && completeSentence !== selectedText;
+    const highlightedSentence = sentenceRange ? highlightSelectedInSentence(sentenceRange, selectedText) : '';
+    const sentenceText = sentenceRange ? extractTextFromRange(sentenceRange) : '';
+    const selectedTextStr = Array.isArray(selectedText) ? selectedText.join(' ') : selectedText;
+    
+    const showSentence = sentenceRange && sentenceText && sentenceText.trim() !== selectedTextStr.trim();
+    
+    const displayText = Array.isArray(selectedText) 
+      ? selectedText.map(t => escapeHtml(t)).join(' • ')
+      : escapeHtml(selectedText);
     
     panel.innerHTML = `
       <div class="compre-ai-panel-header">
@@ -268,16 +509,14 @@
       </div>
       
       <div class="compre-ai-panel-content">
-        ${showSentence ? `
-        <div class="compre-ai-complete-sentence">
+        <div class="compre-ai-complete-sentence" style="display: ${showSentence ? 'block' : 'none'};">
           <label>Complete Sentence:</label>
           <div class="compre-ai-sentence-display">${highlightedSentence}</div>
         </div>
-        ` : ''}
         
         <div class="compre-ai-selected-text">
           <label>Selected Text:</label>
-          <div class="compre-ai-selected-display">${escapeHtml(selectedText)}</div>
+          <div class="compre-ai-selected-display">${displayText}</div>
         </div>
         
         <div class="compre-ai-translate-section">
@@ -292,7 +531,7 @@
           <div class="compre-ai-result-display"></div>
           <div class="compre-ai-language-info" style="display: none;"></div>
           <div class="compre-ai-explanation" id="translation-explanation" style="display: none;">
-            <label>Explanation:</label>
+            <label>Explanations:</label>
             <div class="compre-ai-explanation-display"></div>
           </div>
           <div class="compre-ai-model-info" style="display: none;"></div>
@@ -304,20 +543,18 @@
       </div>
     `;
 
-    // Add event listeners
     const closeBtn = panel.querySelector('.compre-ai-close-btn');
     closeBtn.addEventListener('click', hideSidePanel);
     
     const translateBtn = panel.querySelector('.compre-ai-translate-btn');
-    translateBtn.addEventListener('click', () => translateText({ selectedText, completeSentence }, panel));
+    translateBtn.addEventListener('click', () => translateText({ selectedText, sentenceRange }, panel));
 
-    // Add styles if not already added
     addStyles();
     
     return panel;
   }
 
-  async function translateText({ selectedText, completeSentence }, panel) {
+  async function translateText({ selectedText, sentenceRange }, panel) {
     const translateBtn = panel.querySelector('.compre-ai-translate-btn');
     const btnText = translateBtn.querySelector('.btn-text');
     const btnSpinner = translateBtn.querySelector('.btn-spinner');
@@ -361,7 +598,7 @@
     }
     
     try {
-      const result = await callTranslationAPI({ selectedText, completeSentence });
+      const result = await callTranslationAPI({ selectedText, sentenceRange });
       
       if (result.success) {
         // Show translation result
@@ -382,8 +619,33 @@
             languageInfo.style.display = 'block';
           }
         }
-        if (explanationSection && explanationDisplay && result.explanation) {
-          explanationDisplay.textContent = result.explanation;
+        if (explanationSection && explanationDisplay && result.explanations && result.explanations.length > 0) {
+          // Clear previous content
+          explanationDisplay.innerHTML = '';
+          
+          // Display each explanation with its corresponding text
+          result.explanations.forEach((item, index) => {
+            const explanationItem = document.createElement('div');
+            explanationItem.style.cssText = 'margin-bottom: 12px; padding-bottom: 12px;' + 
+              (index < result.explanations.length - 1 ? 'border-bottom: 1px solid rgba(0,0,0,0.1);' : '');
+            
+            if (item.text) {
+              const textLabel = document.createElement('div');
+              textLabel.style.cssText = 'font-weight: 600; margin-bottom: 4px; color: #667eea;';
+              textLabel.textContent = `"${item.text}"`;
+              explanationItem.appendChild(textLabel);
+            }
+            
+            if (item.explanation) {
+              const explanationText = document.createElement('div');
+              explanationText.style.cssText = 'color: #555; line-height: 1.5;';
+              explanationText.textContent = item.explanation;
+              explanationItem.appendChild(explanationText);
+            }
+            
+            explanationDisplay.appendChild(explanationItem);
+          });
+          
           explanationSection.style.display = 'block';
         }
         if (modelInfo && result.model) {
@@ -411,17 +673,15 @@
   }
 
   // Translation API call function
-  async function callTranslationAPI({ selectedText, completeSentence }) {
+  async function callTranslationAPI({ selectedText, sentenceRange }) {
     try {
-      // Determine API endpoint
       const base = (typeof globalThis !== 'undefined' && globalThis.API_BASE_URL) || 'https://your-translation-api.com';
       const API_ENDPOINT = base.replace(/\/$/, '') + '/translate';
       const TARGET_LANGUAGE = await getTargetLanguage();
 
-      // Prepare request payload
       const requestBody = buildTranslationRequestPayload({
         selectedText,
-        completeSentence,
+        completeSentence: sentenceRange,
         targetLanguage: TARGET_LANGUAGE
       });
 
@@ -440,16 +700,27 @@
       }
 
       const data = await response.json();
-      const translation = data.translation ?? data.translated_text ?? requestBody.text;
+      const translation = data.translation ?? data.translated_text ?? requestBody.completeSentence;
       const targetLanguage = data.targetLanguage ?? data.target_language ?? requestBody.to ?? TARGET_LANGUAGE;
       const detectedLanguage = data.detectedLanguage ?? data.detected_language ?? data.source_language ?? null;
-      const explanation = data.explanation ?? data.explanation_text ?? null;
       const model = data.model ?? data.translation_model ?? null;
+      
+      // Handle new explanations array format
+      // explanations: [{ text: "word", explanation: "..." }, ...]
+      let explanations = [];
+      if (data.explanations && Array.isArray(data.explanations)) {
+        explanations = data.explanations;
+      } else if (data.explanation) {
+        // Backward compatibility: single explanation
+        explanations = [{ text: requestBody.text[0] || '', explanation: data.explanation }];
+      } else if (data.explanation_text) {
+        explanations = [{ text: requestBody.text[0] || '', explanation: data.explanation_text }];
+      }
 
       return {
         success: true,
         translation,
-        explanation,
+        explanations,
         targetLanguage,
         detectedLanguage,
         model,

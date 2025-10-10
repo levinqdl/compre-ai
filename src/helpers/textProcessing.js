@@ -8,6 +8,64 @@ export function isBlockElementTag(tagName) {
   return blockElements.includes(tagName.toUpperCase());
 }
 
+export function findSentenceRangeContaining(textNode, startOffset, endOffset) {
+  if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+    return null;
+  }
+  
+  const fullText = textNode.textContent;
+  if (!fullText) return null;
+  
+  const sentenceEnders = /[.!?]+(?:\s|$)/g;
+  const sentences = [];
+  let match;
+  let lastIndex = 0;
+  
+  while ((match = sentenceEnders.exec(fullText)) !== null) {
+    sentences.push({
+      startIndex: lastIndex,
+      endIndex: match.index + match[0].length
+    });
+    lastIndex = match.index + match[0].length;
+  }
+  
+  if (lastIndex < fullText.length) {
+    sentences.push({
+      startIndex: lastIndex,
+      endIndex: fullText.length
+    });
+  }
+  
+  if (sentences.length === 0) {
+    return { startOffset: 0, endOffset: fullText.length };
+  }
+  
+  for (let i = 0; i < sentences.length; i += 1) {
+    const sentence = sentences[i];
+    if (startOffset >= sentence.startIndex && startOffset < sentence.endIndex) {
+      if (endOffset <= sentence.endIndex) {
+        return { startOffset: sentence.startIndex, endOffset: sentence.endIndex };
+      }
+      
+      let coverageEnd = sentence.endIndex;
+      let nextIndex = i + 1;
+      while (endOffset > coverageEnd && nextIndex < sentences.length) {
+        coverageEnd = sentences[nextIndex].endIndex;
+        nextIndex += 1;
+      }
+      return { startOffset: sentence.startIndex, endOffset: coverageEnd };
+    }
+  }
+  
+  for (const sentence of sentences) {
+    if (startOffset < sentence.endIndex && endOffset > sentence.startIndex) {
+      return { startOffset: sentence.startIndex, endOffset: sentence.endIndex };
+    }
+  }
+  
+  return { startOffset, endOffset };
+}
+
 export function extractSentenceContaining(fullText, selectedText) {
   if (!fullText || !selectedText) return selectedText || '';
   const cleanText = fullText.replace(/\s+/g, ' ').trim();
@@ -57,6 +115,20 @@ export function extractSentenceContaining(fullText, selectedText) {
   return selectedText;
 }
 
+export function extractTextFromRange(range) {
+  if (!range) return '';
+  return range.toString().trim();
+}
+
+export function createRangeFromOffsets(textNode, startOffset, endOffset) {
+  if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return null;
+  
+  const range = document.createRange();
+  range.setStart(textNode, startOffset);
+  range.setEnd(textNode, endOffset);
+  return range;
+}
+
 export function escapeHtml(unsafe) {
   return unsafe
     .replace(/&/g, '&amp;')
@@ -67,20 +139,57 @@ export function escapeHtml(unsafe) {
 }
 
 export function highlightSelectedInSentence(sentence, selectedText) {
-  if (!sentence || !selectedText) return escapeHtml(sentence || '');
-  const escapedSentence = escapeHtml(sentence);
-  const escapedSelected = escapeHtml(selectedText);
-  const regex = new RegExp(escapedSelected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-  return escapedSentence.replace(regex, '<mark style="background-color: #fff3cd; padding: 1px 2px; border-radius: 2px;">$&</mark>');
+  const extractText = (input) => {
+    if (!input) return '';
+    if (typeof input === 'string') return input;
+    if (input.toString) return input.toString();
+    return '';
+  };
+  
+  const sentenceStr = extractText(sentence);
+  if (!sentenceStr) return escapeHtml('');
+  
+  if (!selectedText || (Array.isArray(selectedText) && selectedText.length === 0)) {
+    return escapeHtml(sentenceStr);
+  }
+  
+  let escapedSentence = escapeHtml(sentenceStr);
+  
+  const textArray = Array.isArray(selectedText) ? selectedText : [selectedText];
+  
+  textArray.forEach(text => {
+    const textStr = extractText(text);
+    if (textStr && textStr.trim()) {
+      const escapedSelected = escapeHtml(textStr);
+      const regex = new RegExp(escapedSelected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      escapedSentence = escapedSentence.replace(regex, '<mark style="background-color: #fff3cd; padding: 1px 2px; border-radius: 2px;">$&</mark>');
+    }
+  });
+  
+  return escapedSentence;
 }
 
 export function buildTranslationRequestPayload({ selectedText, completeSentence, targetLanguage }) {
-  const selection = (selectedText || '').trim();
-  const sentence = (completeSentence || '').trim();
-  const text = selection;
+  const extractText = (input) => {
+    if (!input) return '';
+    if (typeof input === 'string') return input.trim();
+    if (input.toString) return input.toString().trim();
+    return '';
+  };
+  
+  const sentence = extractText(completeSentence);
+  
+  let textArray;
+  if (Array.isArray(selectedText)) {
+    textArray = selectedText.map(t => extractText(t)).filter(t => t.length > 0);
+  } else {
+    const singleText = extractText(selectedText);
+    textArray = singleText ? [singleText] : [];
+  }
+  
   return {
-    text,
-    completeSentence: sentence || text,
+    text: textArray,
+    completeSentence: sentence || (textArray.length > 0 ? textArray.join(' ') : ''),
     to: targetLanguage || 'zh',
     detect_source: true
   };
