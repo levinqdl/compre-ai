@@ -11,10 +11,10 @@ document.addEventListener('DOMContentLoaded', function() {
   const siteToggle = document.getElementById('site-toggle');
   const siteNameDisplay = document.getElementById('site-name');
   const siteToggleHint = document.getElementById('site-toggle-hint');
-  const SITE_PREF_KEY = 'disabledSites';
+  const SITE_PREF_KEY = 'enabledSites';
   let currentHostname = '';
-  let cachedDisabledSites = [];
-  let siteEnabled = true;
+  let cachedEnabledSites = [];
+  let siteEnabled = false;
 
   // Load authentication status
   loadAuthStatus();
@@ -62,8 +62,8 @@ document.addEventListener('DOMContentLoaded', function() {
       siteNameDisplay.textContent = currentHostname;
     }
 
-    cachedDisabledSites = await loadDisabledSites();
-    updateToggleUI(!cachedDisabledSites.includes(currentHostname));
+    cachedEnabledSites = await loadEnabledSites();
+    updateToggleUI(cachedEnabledSites.includes(currentHostname));
   }
 
   async function handleSiteToggleChange(event) {
@@ -76,19 +76,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const previousState = siteEnabled;
 
     try {
-      cachedDisabledSites = await loadDisabledSites();
-      const normalized = new Set(cachedDisabledSites);
+      cachedEnabledSites = await loadEnabledSites();
+      const normalized = new Set(cachedEnabledSites);
 
       if (targetState) {
-        normalized.delete(currentHostname);
-      } else {
         normalized.add(currentHostname);
+      } else {
+        normalized.delete(currentHostname);
       }
 
       const updated = Array.from(normalized);
       await chrome.storage.sync.set({ [SITE_PREF_KEY]: updated });
-      cachedDisabledSites = updated;
-      updateToggleUI(targetState);
+      cachedEnabledSites = updated;
+      updateToggleHint(targetState);
 
       const type = targetState ? 'success' : 'info';
       const message = targetState
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  async function loadDisabledSites() {
+  async function loadEnabledSites() {
     try {
       const stored = await chrome.storage.sync.get([SITE_PREF_KEY]);
       const list = stored[SITE_PREF_KEY];
@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .map((item) => (item || '').toString().toLowerCase().trim())
         .filter(Boolean);
     } catch (error) {
-      console.error('Error loading disabled sites', error);
+      console.error('Error loading enabled sites', error);
       return [];
     }
   }
@@ -127,6 +127,13 @@ document.addEventListener('DOMContentLoaded', function() {
       siteToggle.disabled = false;
       siteToggle.checked = enabled;
     }
+    if (siteToggleHint) {
+      siteToggleHint.textContent = enabled ? 'Enabled for this page' : 'Disabled for this page';
+    }
+  }
+
+  function updateToggleHint(enabled) {
+    siteEnabled = enabled;
     if (siteToggleHint) {
       siteToggleHint.textContent = enabled ? 'Enabled for this page' : 'Disabled for this page';
     }
@@ -233,5 +240,9 @@ document.addEventListener('DOMContentLoaded', function() {
         statusMessage.className = 'status-message';
       }, 3000);
     }
+  }
+
+  function showNotification(message, type) {
+    showAuthStatus(message, type);
   }
 });

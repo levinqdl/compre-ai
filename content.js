@@ -8,8 +8,8 @@
   let sidePanel = null;
   let selectionTimeout = null;
   const CURRENT_HOSTNAME = window.location.hostname.toLowerCase();
-  const SITE_PREF_KEY = 'disabledSites';
-  let siteEnabled = true;
+  const SITE_PREF_KEY = 'enabledSites';
+  let siteEnabled = false;
   let accumulatedSelectedTexts = [];
   let currentSentenceRange = null;
 
@@ -132,7 +132,7 @@
       applySitePreference(stored[SITE_PREF_KEY] || []);
     } catch (error) {
       console.error('Error loading site preference', error);
-      siteEnabled = true;
+      siteEnabled = false;
     }
   }
 
@@ -140,7 +140,7 @@
     const normalized = Array.isArray(list)
       ? list.map((item) => (item || '').toString().toLowerCase().trim()).filter(Boolean)
       : [];
-    siteEnabled = !normalized.includes(CURRENT_HOSTNAME);
+    siteEnabled = normalized.includes(CURRENT_HOSTNAME);
     if (!siteEnabled) {
       hideSidePanel();
     }
