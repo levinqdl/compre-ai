@@ -152,12 +152,24 @@
       clearTimeout(selectionTimeout);
     }
 
+    // Exclude side panel from selection change detection
+    const sidePanelElem = document.querySelector('.compre-ai-side-panel');
+    const selection = window.getSelection();
+    if (sidePanelElem && selection && selection.rangeCount > 0) {
+      for (let i = 0; i < selection.rangeCount; i++) {
+        const range = selection.getRangeAt(i);
+        if (sidePanelElem.contains(range.startContainer) || sidePanelElem.contains(range.endContainer)) {
+          return;
+        }
+      }
+    }
+
     if (!siteEnabled) {
       hideSidePanel();
       accumulatedSelectedTexts = [];
       return;
     }
-    
+
     selectionTimeout = setTimeout(() => {
       if (!siteEnabled) {
         hideSidePanel();
@@ -171,7 +183,7 @@
           accumulatedSelectedTexts = [];
           currentSentenceRange = sentenceRange;
         }
-        
+
         selectedRanges.forEach(range => {
           const text = extractTextFromRange(range);
           if (text && !accumulatedSelectedTexts.includes(text)) {
