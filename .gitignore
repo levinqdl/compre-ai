@@ -5,3 +5,12 @@ config.js
 /dist
 /node_modules
 .DS_Store
+
+# Compiled output files (built by Vite/TypeScript)
+background.js
+content.js
+popup.js
+src/helpers/textProcessing.js
+
+# Test coverage
+coverage/

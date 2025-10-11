@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { extractSentenceContaining, escapeHtml, highlightSelectedInSentence, buildTranslationRequestPayload, findSentenceRangeContaining, extractTextFromRange, createRangeFromOffsets } from '../src/helpers/textProcessing.js';
+import { extractSentenceContaining, escapeHtml, highlightSelectedInSentence, buildTranslationRequestPayload, findSentenceRangeContaining, extractTextFromRange, createRangeFromOffsets } from '../src/helpers/textProcessing.ts';
 
 describe('extractSentenceContaining', () => {
   it('returns the full sentence containing the selection', () => {

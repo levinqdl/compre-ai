@@ -9,17 +9,18 @@ Compre AI is a Chrome extension for text translation with intelligent sentence d
 ## Core Architecture
 
 ### Technology Stack
-- **Runtime**: Chrome Extension (Manifest V3)
-- **Language**: JavaScript (ES6+)
-- **Testing**: Vitest
-- **Architecture**: Content Script + Background Script + Popup
+- Runtime: Chrome Extension (Manifest V3)
+- Language: TypeScript for helpers and integration scripts (compiled to JS)
+- Bundler: Vite (outputs IIFE bundles in dist/)
+- Testing: Vitest (TS/JS)
+- Architecture: Content Script + Background Service Worker + Popup
 
 ### Key Files
-- `content.js` - Main content script with text selection and UI logic
-- `src/helpers/textProcessing.js` - Pure helper functions for text processing
-- `popup.js` - Extension popup interface
-- `background.js` - Extension lifecycle management
-- `test/*.test.js` - Vitest test suites
+- dist/content.js - Content script bundle (from src/content.ts)
+- dist/background.js - Service worker bundle (from src/background.ts)
+- dist/popup.js - Popup bundle (from src/popup.ts)
+- src/helpers/textProcessing.ts - Pure, typed helper functions (also kept as .js for tests/compat)
+- test/*.test.js - Vitest suites
 
 ## Development Guidelines
 
@@ -68,35 +69,22 @@ const text = window.getSelection().toString();
 // ✅ Correct - Get full container text
 let container = range.commonAncestorContainer;
 if (container.nodeType === Node.TEXT_NODE) {
-  container = container.parentElement;
-}
-while (container && !isBlockElement(container) && container.parentElement) {
-  container = container.parentElement;
+ **Runtime**: Chrome Extension (Manifest V3)
+ **Language**: TypeScript for helpers + JavaScript for integration (migrating incrementally)
+ **Testing**: Vitest (TS/JS)
 }
 const fullText = container.textContent || '';
-```
-
-**Handle HTML elements properly:**
-- Text can span multiple text nodes (inline elements like `<code>`, `<strong>`)
-- Always collect all text nodes: `getTextNodesIn(container)`
+ `src/helpers/textProcessing.ts` - Pure, typed helper functions for text processing (compiled to `src/helpers/textProcessing.js`)
 - Normalize whitespace: `text.replace(/\s+/g, ' ')`
 - Map positions: `mapNormalizedToOriginal(text, offset)`
 
 ### 4. Text Accumulation
 
 **Context-aware accumulation:**
-```javascript
-// Check if sentence changed
-if (sentenceRange && !isSameSentenceRange(currentSentenceRange, sentenceRange)) {
-  accumulatedSelectedTexts = [];  // Reset on sentence change
   currentSentenceRange = sentenceRange;
 }
 ```
 
-**Rules:**
-- Accumulate selections within the same sentence
-- Reset when user selects from a different sentence
-- Use `Range.compareBoundaryPoints()` for comparison
 
 ### 5. Testing Requirements
 
@@ -124,13 +112,6 @@ pnpm test
 - Edge cases must be covered
 - HTML/DOM interactions must be tested
 
-### 6. Helper Functions
-
-**Helper functions must be:**
-- Pure (no side effects)
-- Polymorphic (accept Range or string)
-- Testable in isolation
-- Exported from `src/helpers/textProcessing.js`
 
 **Example:**
 ```javascript
@@ -285,11 +266,17 @@ if (sentenceContainer) {
 ### Debugging Commands
 
 ```bash
+# Install deps
+pnpm install
+
+# Build extension (bundled to dist/)
+pnpm run build
+
 # Run all tests
 pnpm test
 
 # Run specific test file
-pnpm test textProcessing.test.js
+pnpm test test/textProcessing.test.js
 
 # Run with coverage
 pnpm test --coverage
@@ -319,6 +306,12 @@ pnpm test --watch
 - Created position mapping function
 
 **4. Complete Sentence Display Fix**
+### October 2025 - TypeScript + Vite Adoption
+
+- Introduced TypeScript across helpers and integration (`src/*.ts`)
+- Adopted Vite bundling to produce MV3-compatible IIFE bundles in `dist/`
+- Content script now statically imports helpers; no dynamic import required
+- Packaging scripts copy manifest, popup.html, icons, config.js into `dist/`
 - Fixed visibility logic for sentence container
 - Made container always present in DOM
 - Added dynamic show/hide based on context
@@ -340,7 +333,8 @@ pnpm test --watch
 compre-ai/
 ├── content.js                    # Main content script
 ├── src/helpers/
-│   └── textProcessing.js        # Pure helper functions
+│   ├── textProcessing.ts        # Pure typed helper functions (source)
+│   └── textProcessing.js        # Compiled output used by extension
 ├── test/
 │   ├── textProcessing.test.js   # Helper function tests
 │   ├── sentenceRangeComparison.test.js

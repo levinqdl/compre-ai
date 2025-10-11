@@ -53,75 +53,77 @@ To enable advanced AI features:
 2. Click the extension icon and go to Settings
 3. Enter your API credentials
 4. Save settings
+## 📁 Project Structure (built with Vite)
 
-## 🎯 How to Use
+dist/
+├── background.js           # Built from src/background.ts
+├── content.js              # Built from src/content.ts
+├── popup.js                # Built from src/popup.ts
+├── manifest.json           # Copied
+├── popup.html              # Copied
+├── config.js               # Copied via prep:dev/prod
+└── icons/                  # Copied
 
-### Basic Usage
+src/
+├── background.ts
+├── content.ts
+├── popup.ts
+└── helpers/
+    ├── textProcessing.ts   # Typed helpers (source)
+    └── textProcessing.js   # Compiled output (kept for tests/compat)
 
-1. **Click the extension icon** in your Chrome toolbar
-2. **Review the site toggle** to decide whether the translator should run on the current domain
-2. **Select a feature** from the popup menu:
-   - Analyze Current Page
-   - Summarize Selected Text (select text first)
-   - Translate Text (select text first)
-   - Extract Key Data
-
-### Context Menu Usage
-
-1. **Select any text** on a webpage
-2. **Right-click** to open the context menu
-3. **Choose** from Compre AI options:
-   - Analyze with Compre AI
-   - Summarize with Compre AI
-   - Translate with Compre AI
-
+root files used at build time:
+- manifest.json
+- popup.html
+- config.dev.js / config.prod.js → copied to dist/config.js
+## 🧪 Testing
 ### Per-Site Enablement
 
-Use the toggle at the top of the popup to enable or disable Compre AI on the current domain. Changes take effect immediately and persist across sessions.
-
-## 📁 Project Structure
+```
+pnpm -C compre-ai test
+```
 
 ```
-compre-ai/
-├── manifest.json          # Extension configuration
-├── popup.html             # Extension popup interface
+```
+pnpm -C compre-ai test:watch
+```
 ├── popup.js               # Popup functionality
 ├── content.js             # Content script for web page interaction
-├── background.js          # Background script for extension lifecycle
-├── icons/                 # Extension icons (16, 32, 48, 128px)
-│   └── README.md         # Icon creation guide
+```
+pnpm -C compre-ai test:coverage
+```
 └── README.md             # This file
 ```
-
+- Helper functions live in `src/helpers/` (e.g. `textProcessing.ts`)
 ## 🔧 Development
 
 ### File Overview
 
-- **`manifest.json`**: Extension configuration and permissions
-- **`popup.html/js`**: User interface when clicking the extension icon
-- **`content.js`**: Runs on web pages to analyze and extract data
-- **`background.js`**: Handles extension lifecycle and background tasks
+### Build and Package
 
-### Key Features Implemented
+Install deps and build:
+```
+pnpm install
+pnpm run build
+```
 
-- ✅ Page content analysis
-- ✅ Text selection and processing
-- ✅ Data extraction (emails, phones, dates, etc.)
-- ✅ Modern popup UI with gradient design
-- ✅ Context menu integration
-- ✅ Settings storage
-- ✅ Analytics logging framework
-- ✅ Error handling
-- ✅ Environment-based API base URL selection (config.dev.js / config.prod.js)
+Create a development zip:
+```
+pnpm run zip:dev
+```
+Creates: `dist/compre-ai-dev.zip`
 
-### Permissions Used
+Create a production zip:
+```
+pnpm run zip:prod
+```
+Creates: `dist/compre-ai-prod.zip`
 
-- **`activeTab`**: Access to the currently active tab
-- **`storage`**: Store user settings and preferences
-- **`contextMenus`**: Add right-click menu options (automatically included)
-
-## 🎨 Customization
-
+Just switch config without zipping:
+```
+pnpm run prep:dev
+pnpm run prep:prod
+```
 ### Changing the Theme
 
 Edit the CSS in `popup.html` to customize colors and appearance:
@@ -272,30 +274,9 @@ cp config.prod.js config.js
 ```
 Reload the unpacked extension after switching.
 
-### NPM Script Workflow
+### Script Workflow
 
-You can automate environment prep and packaging with the provided scripts (see `package.json`). First install dependencies (there are none, but this sets up the lockfile if desired):
-```
-npm install
-```
-
-Create a development zip:
-```
-npm run zip:dev
-```
-Creates: `dist/compre-ai-dev.zip`
-
-Create a production zip:
-```
-npm run zip:prod
-```
-Creates: `dist/compre-ai-prod.zip`
-
-Just switch config without zipping:
-```
-npm run prep:dev
-npm run prep:prod
-```
+You can automate environment prep and packaging with the provided scripts (see `package.json`).
 
 ### Packaging Tip
 Before zipping for release ensure `config.js` matches production:
