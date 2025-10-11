@@ -177,6 +177,38 @@ export function buildTranslationRequestPayload({ selectedText, completeSentence,
   };
 }
 
+export function mergeOverlappingSelections(existingSelections: string[], newSelection: string): string[] {
+  if (existingSelections.includes(newSelection)) {
+    return existingSelections;
+  }
+  
+  const hasOverlap = (str1: string, str2: string): boolean => {
+    if (str1.includes(str2) || str2.includes(str1)) {
+      return true;
+    }
+    
+    const words1 = str1.split(/\s+/);
+    const words2 = str2.split(/\s+/);
+    
+    for (const word1 of words1) {
+      for (const word2 of words2) {
+        if (word1.length > 2 && word2.length > 2 && (word1.includes(word2) || word2.includes(word1))) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  };
+  
+  const filteredSelections = existingSelections.filter(existing => {
+    return !hasOverlap(existing, newSelection);
+  });
+  
+  filteredSelections.push(newSelection);
+  return filteredSelections;
+}
+
 export function mapNormalizedToOriginal(text: string, normalizedOffset: number): number {
   let normalizedCount = 0;
   let inWhitespace = false;

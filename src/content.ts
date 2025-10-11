@@ -1,19 +1,11 @@
 /// <reference types="chrome" />
-import { 
-  extractSentenceContaining, 
-  highlightSelectedInSentence, 
-  escapeHtml, 
-  buildTranslationRequestPayload, 
-  findSentenceRangeContaining, 
-  extractTextFromRange, 
-  createRangeFromOffsets,
+import {
+  buildTranslationRequestPayload,
+  escapeHtml,
+  extractTextFromRange,
   getCompleteSentence,
-  mapNormalizedToOriginal,
-  getFirstTextNode,
-  getLastTextNode,
-  getTextNodesIn,
-  isBlockElement,
-  type CompleteSentenceResult
+  highlightSelectedInSentence,
+  mergeOverlappingSelections
 } from './helpers/textProcessing';
 
 // Content script for Compre AI Chrome Extension
@@ -102,8 +94,8 @@ import {
         }
         selectedRanges.forEach(range => {
           const text = extractTextFromRange(range);
-          if (text && !accumulatedSelectedTexts.includes(text)) {
-            accumulatedSelectedTexts.push(text);
+          if (text) {
+            accumulatedSelectedTexts = mergeOverlappingSelections(accumulatedSelectedTexts, text);
           }
         });
         showSidePanel(accumulatedSelectedTexts, sentenceRange);
