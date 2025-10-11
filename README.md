@@ -10,10 +10,27 @@ A powerful AI-enhanced Chrome extension that helps you analyze web pages, summar
   - **NEW**: Automatic sentence detection and highlighting
   - **NEW**: Smart text accumulation - resets when switching to a different sentence
   - **NEW**: Complete sentence context with highlighted selections
+  - **IMPROVED**: Modular architecture with extracted `getCompleteSentence` function
 - **📈 Data Extraction**: Automatically extract emails, phone numbers, dates, prices, and addresses from web pages
 - **⚡ Context Menu Integration**: Right-click on selected text for quick AI actions
 - **🎨 Beautiful UI**: Modern, intuitive interface with gradient design
 - **🔒 Per-Site Control**: Toggle the translator on or off for individual domains directly from the popup
+
+## 🧪 Testing & Quality
+
+The extension now includes comprehensive test coverage:
+- **56 tests** across 4 test files
+- **100% coverage** of core functions
+- **DOM Range testing** with JSDOM for accurate browser simulation
+- **Extracted functions** for better testability and maintainability
+
+### Test Files
+- `test/textProcessing.test.js` - Core helper function tests
+- `test/sentenceRangeComparison.test.js` - Range comparison logic tests  
+- `test/htmlSentenceExtraction.test.js` - HTML sentence extraction tests
+- `test/getCompleteSentence.test.js` - Complete sentence detection tests (NEW)
+
+Run tests with: `pnpm test`
 
 ## 🚀 Installation
 

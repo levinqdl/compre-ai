@@ -306,15 +306,24 @@ pnpm test --watch
 - Created position mapping function
 
 **4. Complete Sentence Display Fix**
+- Fixed visibility logic for sentence container
+- Made container always present in DOM
+- Added dynamic show/hide based on context
+
+**5. Function Extraction & Testing (October 2025)**
+- **Extracted `getCompleteSentence` function** from content script to `src/helpers/textProcessing.ts`
+- **Added comprehensive test coverage** with 25 new tests in `test/getCompleteSentence.test.js`
+- **Modularized helper functions**: `mapNormalizedToOriginal`, `getFirstTextNode`, `getLastTextNode`, `getTextNodesIn`, `isBlockElement`
+- **Improved maintainability** by separating concerns and making functions testable
+- **Total test count**: 56 tests across 4 test files
+- **Enhanced code quality** with proper TypeScript types and interfaces
+
 ### October 2025 - TypeScript + Vite Adoption
 
 - Introduced TypeScript across helpers and integration (`src/*.ts`)
 - Adopted Vite bundling to produce MV3-compatible IIFE bundles in `dist/`
 - Content script now statically imports helpers; no dynamic import required
 - Packaging scripts copy manifest, popup.html, icons, config.js into `dist/`
-- Fixed visibility logic for sentence container
-- Made container always present in DOM
-- Added dynamic show/hide based on context
 
 ## Quick Reference
 
@@ -338,7 +347,8 @@ compre-ai/
 ├── test/
 │   ├── textProcessing.test.js   # Helper function tests
 │   ├── sentenceRangeComparison.test.js
-│   └── htmlSentenceExtraction.test.js
+│   ├── htmlSentenceExtraction.test.js
+│   └── getCompleteSentence.test.js  # Complete sentence detection tests
 ├── README.md                     # User documentation
 ├── AGENTS.md                     # This file (AI assistant guide)
 └── docs/                        # Reserved for future detailed docs
@@ -346,8 +356,8 @@ compre-ai/
 
 ### Key Metrics
 
-- **Tests**: 31 passing
-- **Test Files**: 3
+- **Tests**: 56 passing
+- **Test Files**: 4
 - **Coverage**: Core functions 100%
 - **Browser**: Chrome (Manifest V3)
 

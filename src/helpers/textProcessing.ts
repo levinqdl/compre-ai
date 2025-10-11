@@ -63,18 +63,24 @@ export function extractSentenceContaining(fullText: string, selectedText: string
   const selectedIndex = cleanText.toLowerCase().indexOf(cleanSelected.toLowerCase());
   if (selectedIndex === -1) return selectedText;
 
-  const sentenceEnders = /[.!?]+(?:\s|$)/g;
+  const sentenceEnders = /[.!?]+(?=\s|$)/g;
   const sentences: Array<{ text: string; startIndex: number; endIndex: number }> = [];
   let match: RegExpExecArray | null;
   let lastIndex = 0;
   while ((match = sentenceEnders.exec(cleanText)) !== null) {
-    const sentence = cleanText.substring(lastIndex, match.index + match[0].length).trim();
-    if (sentence) sentences.push({ text: sentence, startIndex: lastIndex, endIndex: match.index + match[0].length });
+    const sentenceWithPeriod = cleanText.substring(lastIndex, match.index + match[0].length).trim();
+    if (sentenceWithPeriod) {
+      const sentenceStart = cleanText.indexOf(sentenceWithPeriod, lastIndex);
+      sentences.push({ text: sentenceWithPeriod, startIndex: sentenceStart, endIndex: match.index + match[0].length });
+    }
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < cleanText.length) {
     const lastSentence = cleanText.substring(lastIndex).trim();
-    if (lastSentence) sentences.push({ text: lastSentence, startIndex: lastIndex, endIndex: cleanText.length });
+    if (lastSentence) {
+      const sentenceStart = cleanText.indexOf(lastSentence, lastIndex);
+      sentences.push({ text: lastSentence, startIndex: sentenceStart, endIndex: cleanText.length });
+    }
   }
 
   const selectedEnd = selectedIndex + cleanSelected.length;
@@ -169,4 +175,176 @@ export function buildTranslationRequestPayload({ selectedText, completeSentence,
     to: targetLanguage || 'zh',
     detect_source: true,
   };
+}
+
+export function mapNormalizedToOriginal(text: string, normalizedOffset: number): number {
+  let normalizedCount = 0;
+  let inWhitespace = false;
+  
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const isWhitespace = /\s/.test(char);
+    
+    if (isWhitespace) {
+      if (!inWhitespace) {
+        normalizedCount++;
+        inWhitespace = true;
+        if (normalizedCount >= normalizedOffset) {
+          return i;
+        }
+      }
+    } else {
+      normalizedCount++;
+      inWhitespace = false;
+      if (normalizedCount > normalizedOffset) {
+        return i;
+      }
+    }
+  }
+  
+  return text.length;
+}
+
+export function getFirstTextNode(node: Node): Text | null {
+  if (node.nodeType === Node.TEXT_NODE) return node as Text;
+  for (const child of Array.from(node.childNodes)) {
+    const textNode = getFirstTextNode(child);
+    if (textNode) return textNode;
+  }
+  return null;
+}
+
+export function getLastTextNode(node: Node): Text | null {
+  if (node.nodeType === Node.TEXT_NODE) return node as Text;
+  for (let i = node.childNodes.length - 1; i >= 0; i--) {
+    const textNode = getLastTextNode(node.childNodes[i]!);
+    if (textNode) return textNode;
+  }
+  return null;
+}
+
+export function getTextNodesIn(node: Node): Text[] {
+  const textNodes: Text[] = [];
+  if (node.nodeType === Node.TEXT_NODE) {
+    textNodes.push(node as Text);
+  } else {
+    for (const child of Array.from(node.childNodes)) {
+      textNodes.push(...getTextNodesIn(child));
+    }
+  }
+  return textNodes;
+}
+
+export function isBlockElement(element: Element | null): boolean {
+  if (!element || !('tagName' in element)) return false;
+  const blockElements = [
+    'P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 
+    'BLOCKQUOTE', 'LI', 'TD', 'TH', 'ARTICLE', 'SECTION', 
+    'ASIDE', 'NAV', 'MAIN', 'HEADER', 'FOOTER'
+  ];
+  return blockElements.includes(element.tagName.toUpperCase());
+}
+
+export interface CompleteSentenceResult {
+  selectedRanges: Range[];
+  sentenceRange: Range | null;
+}
+
+export function getCompleteSentence(): CompleteSentenceResult {
+  const selection = window.getSelection();
+  if (!selection || !selection.rangeCount || selection.toString().trim() === '') {
+    return { selectedRanges: [], sentenceRange: null };
+  }
+  
+  const selectedRanges: Range[] = [];
+  const fullSelectionText = selection.toString().trim();
+  
+  for (let i = 0; i < selection.rangeCount; i++) {
+    const range = selection.getRangeAt(i);
+    if (range.toString().trim()) {
+      selectedRanges.push(range.cloneRange());
+    }
+  }
+  
+  if (selectedRanges.length === 0) {
+    return { selectedRanges: [], sentenceRange: null };
+  }
+  
+  const primaryRange = selectedRanges[0];
+  let startContainer: Node = primaryRange.startContainer;
+  let endContainer: Node = primaryRange.endContainer;
+  
+  if (startContainer.nodeType !== Node.TEXT_NODE) {
+    startContainer = getFirstTextNode(startContainer) || startContainer;
+  }
+  if (endContainer.nodeType !== Node.TEXT_NODE) {
+    endContainer = getLastTextNode(endContainer) || endContainer;
+  }
+  
+  if (startContainer.nodeType !== Node.TEXT_NODE || endContainer.nodeType !== Node.TEXT_NODE) {
+    return { selectedRanges, sentenceRange: null };
+  }
+  
+  let container: Node | Element | null = primaryRange.commonAncestorContainer;
+  if (container.nodeType === Node.TEXT_NODE) {
+    container = (container as Text).parentElement;
+  }
+  
+  while (container && container instanceof Element && !isBlockElement(container) && container.parentElement) {
+    container = container.parentElement;
+  }
+  
+  if (!container) {
+    return { selectedRanges, sentenceRange: null };
+  }
+  
+  const fullText = (container as Element).textContent || '';
+  const completeSentence = extractSentenceContaining(fullText, fullSelectionText);
+  
+  if (completeSentence && completeSentence.trim() !== fullSelectionText.trim()) {
+    const sentenceRange = document.createRange();
+    const textNodes = getTextNodesIn(container as Element);
+    let sentenceStart: { node: Text; offset: number } | null = null;
+    let sentenceEnd: { node: Text; offset: number } | null = null;
+    
+    const normalizedFullText = fullText.replace(/\s+/g, ' ');
+    const normalizedSentence = completeSentence.replace(/\s+/g, ' ');
+    const sentenceStartInFull = normalizedFullText.indexOf(normalizedSentence);
+    
+    if (sentenceStartInFull === -1) {
+      return { selectedRanges, sentenceRange: primaryRange.cloneRange() };
+    }
+    
+    const sentenceEndInFull = sentenceStartInFull + normalizedSentence.length;
+    let normalizedOffset = 0;
+    
+    for (const textNode of textNodes) {
+      const nodeText = textNode.textContent || '';
+      const normalizedNodeText = nodeText.replace(/\s+/g, ' ');
+      const normalizedNodeLength = normalizedNodeText.length;
+      
+      if (sentenceStart === null && normalizedOffset + normalizedNodeLength > sentenceStartInFull) {
+        const offsetInNormalized = sentenceStartInFull - normalizedOffset;
+        const offsetInOriginal = mapNormalizedToOriginal(nodeText, offsetInNormalized);
+        sentenceStart = { node: textNode, offset: offsetInOriginal };
+      }
+      
+      if (sentenceStart !== null && sentenceEnd === null && normalizedOffset + normalizedNodeLength >= sentenceEndInFull) {
+        const offsetInNormalized = sentenceEndInFull - normalizedOffset;
+        const offsetInOriginal = mapNormalizedToOriginal(nodeText, offsetInNormalized);
+        sentenceEnd = { node: textNode, offset: offsetInOriginal };
+        break;
+      }
+      
+      normalizedOffset += normalizedNodeLength;
+    }
+    
+    if (sentenceStart && sentenceEnd) {
+      sentenceRange.setStart(sentenceStart.node, sentenceStart.offset);
+      sentenceRange.setEnd(sentenceEnd.node, sentenceEnd.offset);
+      return { selectedRanges, sentenceRange };
+    }
+  }
+  
+  return { selectedRanges, sentenceRange: primaryRange.cloneRange() };
 }

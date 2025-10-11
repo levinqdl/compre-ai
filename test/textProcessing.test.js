@@ -21,6 +21,13 @@ describe('extractSentenceContaining', () => {
     const result = extractSentenceContaining(text, selected);
     expect(result).toBe('AI is evolving fast. It bridges gaps between industries.');
   });
+
+  it('handles numbers with periods correctly', () => {
+    const text = 'I returned to copilot right as 4.5 came out so maybe I\'m just witness Claude carry';
+    const selected = 'witness Claude carry';
+    const result = extractSentenceContaining(text, selected);
+    expect(result).toBe('I returned to copilot right as 4.5 came out so maybe I\'m just witness Claude carry');
+  });
 });
 
 describe('escapeHtml', () => {
