@@ -1,4 +1,10 @@
-@import "tailwindcss" important;
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+
+#compre-ai-root {
+  @import "tailwindcss/preflight.css" layer(base);
+  @import "tailwindcss/utilities" layer(utilities);
+}
 
 @layer utilities {
   .animate-slide-in {

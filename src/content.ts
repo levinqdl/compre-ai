@@ -129,6 +129,7 @@ import './styles.css';
     if (!sidePanelContainer) {
       sidePanelContainer = document.createElement('div');
       sidePanelContainer.className = 'compre-ai-root';
+      sidePanelContainer.id = "compre-ai-root";
       document.body.appendChild(sidePanelContainer);
       sidePanelRoot = createRoot(sidePanelContainer);
     }
