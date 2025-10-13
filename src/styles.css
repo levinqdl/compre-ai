@@ -1,0 +1,16 @@
+@import "tailwindcss" important;
+
+@layer utilities {
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-in-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      right: -400px;
+    }
+    to {
+      right: 0;
+    }
+  }
+}

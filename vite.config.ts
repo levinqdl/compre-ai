@@ -1,4 +1,5 @@
 import { defineConfig, Plugin } from 'vite';
+import react from '@vitejs/plugin-react';
 import { copyFileSync, mkdirSync, cpSync } from 'fs';
 
 function emitStaticOnce(): Plugin {
@@ -18,9 +19,13 @@ function emitStaticOnce(): Plugin {
   };
 }
 
-// Export base config that other configs can extend
 export const baseConfig = {
-  plugins: [emitStaticOnce()],
+  plugins: [react(), emitStaticOnce()],
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    'process.env': '{}',
+    'global': 'globalThis',
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: false,
@@ -30,6 +35,7 @@ export const baseConfig = {
     rollupOptions: {
       output: {
         extend: true,
+        intro: 'const process = { env: { NODE_ENV: "production" }, emit: () => {} };',
       },
     },
   },

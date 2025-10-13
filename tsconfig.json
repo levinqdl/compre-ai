@@ -8,12 +8,14 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-  "lib": ["ES2020", "DOM", "WebWorker"],
-  "types": ["chrome"],
+    "lib": ["ES2020", "DOM", "WebWorker"],
+    "types": ["chrome"],
     "allowJs": false,
     "declaration": false,
-    "sourceMap": false
+    "sourceMap": false,
+    "jsx": "react-jsx",
+    "esModuleInterop": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules", "dist", "coverage", "test"]
 }

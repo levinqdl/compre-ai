@@ -6,7 +6,7 @@ export default defineConfig({
   build: {
     ...baseConfig.build,
     lib: {
-      entry: 'src/popup.ts',
+      entry: 'src/popup.tsx',
       name: 'popup',
       formats: ['iife'],
       fileName: () => 'popup.js',
