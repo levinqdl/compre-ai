@@ -166,7 +166,7 @@ import './styles.css';
     currentSentenceRange = null;
   }
 
-  async function translateText({ selectedText, sentenceRange }: { selectedText: string | string[]; sentenceRange: Range | null }) {
+  async function translateText({ selectedText, sentenceRange }: { selectedText: string | string[]; sentenceRange: Range | null }): Promise<{ success: boolean; translation?: string; error?: string; detectedLanguage?: string; targetLanguage?: string; model?: string; explanations?: any[]; }> {
     if (!siteEnabled) {
       return {
         success: false,
@@ -187,37 +187,66 @@ import './styles.css';
   }
 
   async function callTranslationAPI({ selectedText, sentenceRange }: { selectedText: string | string[]; sentenceRange: Range | null }) {
-    try {
-      const base = ((globalThis as any).API_BASE_URL) || 'https://your-translation-api.com';
-      const API_ENDPOINT = base.replace(/\/$/, '') + '/translate';
-      const TARGET_LANGUAGE = await getTargetLanguage();
-  const completeSentenceArg: string | Range = sentenceRange ?? (Array.isArray(selectedText) ? selectedText.join(' ') : selectedText);
-  const requestBody = buildTranslationRequestPayload({ selectedText, completeSentence: completeSentenceArg, targetLanguage: TARGET_LANGUAGE });
-      const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-      const translation = data.translation ?? data.translated_text ?? requestBody.completeSentence;
-      const targetLanguage = data.targetLanguage ?? data.target_language ?? requestBody.to ?? TARGET_LANGUAGE;
-      const detectedLanguage = data.detectedLanguage ?? data.detected_language ?? data.source_language ?? null;
-      const model = data.model ?? data.translation_model ?? null;
-      let explanations = [];
-      if (data.explanations && Array.isArray(data.explanations)) {
-        explanations = data.explanations;
-      } else if (data.explanation) {
-        explanations = [{ text: requestBody.text[0] || '', explanation: data.explanation }];
-      } else if (data.explanation_text) {
-        explanations = [{ text: requestBody.text[0] || '', explanation: data.explanation_text }];
+    const MAX_RETRIES = 2;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const base = ((globalThis as any).API_BASE_URL) || 'https://your-translation-api.com';
+        const API_ENDPOINT = base.replace(/\/$/, '') + '/translate';
+        const TARGET_LANGUAGE = await getTargetLanguage();
+        const completeSentenceArg: string | Range = sentenceRange ?? (Array.isArray(selectedText) ? selectedText.join(' ') : selectedText);
+        const requestBody = buildTranslationRequestPayload({ selectedText, completeSentence: completeSentenceArg, targetLanguage: TARGET_LANGUAGE });
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        
+        const response = await fetch(API_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        const translation = data.translation ?? data.translated_text ?? requestBody.completeSentence;
+        const targetLanguage = data.targetLanguage ?? data.target_language ?? requestBody.to ?? TARGET_LANGUAGE;
+        const detectedLanguage = data.detectedLanguage ?? data.detected_language ?? data.source_language ?? null;
+        const model = data.model ?? data.translation_model ?? null;
+        let explanations = [];
+        if (data.explanations && Array.isArray(data.explanations)) {
+          explanations = data.explanations;
+        } else if (data.explanation) {
+          explanations = [{ text: requestBody.text[0] || '', explanation: data.explanation }];
+        } else if (data.explanation_text) {
+          explanations = [{ text: requestBody.text[0] || '', explanation: data.explanation_text }];
+        }
+        return { success: true, translation, explanations, targetLanguage, detectedLanguage, model, to: targetLanguage, confidence: data.confidence ?? null };
+      } catch (error: unknown) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`Translation API error (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, error);
+        
+        if (attempt < MAX_RETRIES) {
+          const isRetryableError = error instanceof Error && (
+            error.name === 'AbortError' ||
+            error.message.includes('ERR_CONNECTION') ||
+            error.message.includes('network') ||
+            error.message.includes('fetch')
+          );
+          if (isRetryableError) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            continue;
+          }
+        }
+        break;
       }
-      return { success: true, translation, explanations, targetLanguage, detectedLanguage, model, to: targetLanguage, confidence: data.confidence ?? null };
-    } catch (error: unknown) {
-      console.error('Translation API error:', error);
-      const message = error instanceof Error ? error.message : String(error);
-      return { success: false, error: `Translation service error: ${message}` };
     }
+    
+    const message = lastError?.message || 'Unknown error';
+    return { success: false, error: `Translation service error: ${message}` };
   }
 
   async function getTargetLanguage(): Promise<string> {
