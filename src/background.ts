@@ -2,8 +2,13 @@
 
 try { importScripts('config.js'); } catch (e) { console.warn('Config not loaded', e); }
 
-chrome.runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails) => {
+chrome.runtime.onInstalled.addListener(async (details: chrome.runtime.InstalledDetails) => {
   console.log('Compre AI Translator installed/updated:', details.reason);
+  
+  const apiBaseUrl = ((globalThis as any).API_BASE_URL) || 'https://compre-ai.icu';
+  await chrome.storage.local.set({ apiBaseUrl });
+  console.log('API Base URL initialized:', apiBaseUrl);
+  
   if (details.reason === 'install') {
     showWelcomeNotification();
   }

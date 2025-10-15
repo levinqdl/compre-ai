@@ -24,10 +24,12 @@ import './styles.css';
   let siteEnabled = false;
   let accumulatedSelectedTexts: string[] = [];
   let currentSentenceRange: Range | null = null;
+  let apiBaseUrl: string | null = null;
 
   init().catch((error) => console.error('Failed to initialize Compre AI content script', error));
 
   async function init() {
+    await loadApiConfig();
     await refreshSitePreference();
   chrome.storage.onChanged.addListener((changes: Record<string, any>, areaName: 'sync' | 'local' | 'managed' | 'session') => {
       if (areaName === 'sync' && Object.prototype.hasOwnProperty.call(changes, SITE_PREF_KEY)) {
@@ -40,6 +42,21 @@ import './styles.css';
       return true;
     });
     console.log('Compre AI content script initialized');
+  }
+
+  async function loadApiConfig() {
+    try {
+      apiBaseUrl = ((globalThis as any).API_BASE_URL) || null;
+      if (!apiBaseUrl) {
+        const stored = await chrome.storage.local.get(['apiBaseUrl']);
+        apiBaseUrl = stored.apiBaseUrl || 'https://compre-ai.icu';
+      }
+      await chrome.storage.local.set({ apiBaseUrl });
+      console.log('API Base URL loaded:', apiBaseUrl);
+    } catch (error) {
+      console.error('Error loading API config', error);
+      apiBaseUrl = 'https://compre-ai.icu';
+    }
   }
 
   async function refreshSitePreference() {
@@ -192,7 +209,10 @@ import './styles.css';
     
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const base = ((globalThis as any).API_BASE_URL) || 'https://your-translation-api.com';
+        if (!apiBaseUrl) {
+          await loadApiConfig();
+        }
+        const base = apiBaseUrl || 'https://compre-ai.icu';
         const API_ENDPOINT = base.replace(/\/$/, '') + '/translate';
         const TARGET_LANGUAGE = await getTargetLanguage();
         const completeSentenceArg: string | Range = sentenceRange ?? (Array.isArray(selectedText) ? selectedText.join(' ') : selectedText);
