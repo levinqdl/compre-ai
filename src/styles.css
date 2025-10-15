@@ -3,7 +3,7 @@
 
 #compre-ai-root {
   @import "tailwindcss/preflight.css" layer(base);
-  @import "tailwindcss/utilities" layer(utilities);
+  @import "tailwindcss/utilities" layer(utilities) important;
 }
 
 @layer utilities {
