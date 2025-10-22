@@ -1,5 +1,6 @@
 /// <reference types="chrome" />
 import { useState } from 'react';
+import SentenceControls from './SentenceControls';
 
 interface TranslationResult {
   translation: string;
@@ -16,6 +17,10 @@ interface SidePanelProps {
   showSentence: boolean;
   onClose: () => void;
   onTranslate: () => Promise<{ success: boolean; translation?: string; error?: string; detectedLanguage?: string; targetLanguage?: string; model?: string; explanations?: any[] }>;
+  onExpandSentenceStart?: () => void;
+  onShortenSentenceStart?: () => void;
+  onExpandSentenceEnd?: () => void;
+  onShortenSentenceEnd?: () => void;
 }
 
 export default function SidePanel({
@@ -24,7 +29,11 @@ export default function SidePanel({
   highlightedSentence,
   showSentence,
   onClose,
-  onTranslate
+  onTranslate,
+  onExpandSentenceStart,
+  onShortenSentenceStart,
+  onExpandSentenceEnd,
+  onShortenSentenceEnd
 }: SidePanelProps) {
   const [isTranslating, setIsTranslating] = useState(false);
   const [result, setResult] = useState<TranslationResult | null>(null);
@@ -76,10 +85,15 @@ export default function SidePanel({
         {showSentence && (
           <div className="mb-5">
             <label className="block mb-2 font-semibold text-gray-800">Complete Sentence:</label>
-            <div
-              className="bg-blue-50 border border-blue-200 rounded-md p-3 text-gray-800 leading-relaxed break-words max-h-40 overflow-y-auto"
-              dangerouslySetInnerHTML={{ __html: highlightedSentence }}
-            />
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-gray-800 leading-relaxed break-words max-h-40 overflow-y-auto">
+              <SentenceControls
+                highlightedSentence={highlightedSentence}
+                onExpandSentenceStart={onExpandSentenceStart}
+                onShortenSentenceStart={onShortenSentenceStart}
+                onExpandSentenceEnd={onExpandSentenceEnd}
+                onShortenSentenceEnd={onShortenSentenceEnd}
+              />
+            </div>
           </div>
         )}
 

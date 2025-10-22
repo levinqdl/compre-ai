@@ -141,6 +141,147 @@ import './styles.css';
     }
   }
 
+  function handleExpandSentenceStart() {
+    if (!currentSentenceRange) return;
+    
+    const startContainer = currentSentenceRange.startContainer;
+    const startOffset = currentSentenceRange.startOffset;
+    
+    if (startContainer.nodeType === Node.TEXT_NODE) {
+      const textNode = startContainer as Text;
+      const textContent = textNode.textContent || '';
+      
+      const sentenceEnders = /[.!?]+\s+/g;
+      let newStartOffset = 0;
+      let match: RegExpExecArray | null;
+      let lastMatchEnd = 0;
+      
+      while ((match = sentenceEnders.exec(textContent)) !== null) {
+        if (match.index + match[0].length < startOffset) {
+          lastMatchEnd = match.index + match[0].length;
+        }
+      }
+      
+      newStartOffset = lastMatchEnd;
+      
+      if (newStartOffset < startOffset) {
+        const newRange = document.createRange();
+        newRange.setStart(textNode, newStartOffset);
+        newRange.setEnd(currentSentenceRange.endContainer, currentSentenceRange.endOffset);
+        currentSentenceRange = newRange;
+        
+        showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
+      }
+    }
+  }
+
+  function handleShortenSentenceStart() {
+    if (!currentSentenceRange) return;
+    
+    const startContainer = currentSentenceRange.startContainer;
+    const startOffset = currentSentenceRange.startOffset;
+    
+    if (startContainer.nodeType === Node.TEXT_NODE) {
+      const textNode = startContainer as Text;
+      const textContent = textNode.textContent || '';
+      
+      const sentenceEnders = /[.!?]+\s+/g;
+      let match: RegExpExecArray | null;
+      let newStartOffset = startOffset;
+      
+      while ((match = sentenceEnders.exec(textContent)) !== null) {
+        const matchEnd = match.index + match[0].length;
+        if (matchEnd > startOffset && matchEnd < currentSentenceRange.endOffset) {
+          newStartOffset = matchEnd;
+          break;
+        }
+      }
+      
+      if (newStartOffset > startOffset && newStartOffset < currentSentenceRange.endOffset) {
+        const newRange = document.createRange();
+        newRange.setStart(textNode, newStartOffset);
+        newRange.setEnd(currentSentenceRange.endContainer, currentSentenceRange.endOffset);
+        currentSentenceRange = newRange;
+        
+        showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
+      }
+    }
+  }
+
+  function handleExpandSentenceEnd() {
+    if (!currentSentenceRange) return;
+    
+    const endContainer = currentSentenceRange.endContainer;
+    const endOffset = currentSentenceRange.endOffset;
+    
+    if (endContainer.nodeType === Node.TEXT_NODE) {
+      const textNode = endContainer as Text;
+      const textContent = textNode.textContent || '';
+      
+      const sentenceEnders = /[.!?]+\s+/g;
+      let match: RegExpExecArray | null;
+      let newEndOffset = textContent.length;
+      
+      while ((match = sentenceEnders.exec(textContent)) !== null) {
+        const matchEnd = match.index + match[0].length;
+        if (matchEnd > endOffset) {
+          newEndOffset = matchEnd;
+          break;
+        }
+      }
+      
+      if (newEndOffset === textContent.length && !sentenceEnders.test(textContent.substring(endOffset))) {
+        newEndOffset = textContent.length;
+      }
+      
+      if (newEndOffset > endOffset) {
+        const newRange = document.createRange();
+        newRange.setStart(currentSentenceRange.startContainer, currentSentenceRange.startOffset);
+        newRange.setEnd(textNode, newEndOffset);
+        currentSentenceRange = newRange;
+        
+        showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
+      }
+    }
+  }
+
+  function handleShortenSentenceEnd() {
+    if (!currentSentenceRange) return;
+    
+    const endContainer = currentSentenceRange.endContainer;
+    const endOffset = currentSentenceRange.endOffset;
+    
+    if (endContainer.nodeType === Node.TEXT_NODE) {
+      const textNode = endContainer as Text;
+      const textContent = textNode.textContent || '';
+      
+      const sentenceEnders = /[.!?]+\s+/g;
+      let match: RegExpExecArray | null;
+      let newEndOffset = currentSentenceRange.startOffset;
+      let matches: number[] = [];
+      
+      while ((match = sentenceEnders.exec(textContent)) !== null) {
+        const matchEnd = match.index + match[0].length;
+        if (matchEnd < endOffset && matchEnd > currentSentenceRange.startOffset) {
+          matches.push(matchEnd);
+        }
+      }
+      
+      if (matches.length > 0) {
+        newEndOffset = matches[matches.length - 1];
+      }
+      
+      if (newEndOffset < endOffset && newEndOffset > currentSentenceRange.startOffset) {
+        const newRange = document.createRange();
+        newRange.setStart(currentSentenceRange.startContainer, currentSentenceRange.startOffset);
+        newRange.setEnd(textNode, newEndOffset);
+        currentSentenceRange = newRange;
+        
+        showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
+      }
+    }
+  }
+
   function showSidePanel(selectedText: string | string[], sentenceRange: Range | null) {
     if (!siteEnabled) return;
     if (!sidePanelContainer) {
@@ -163,7 +304,11 @@ import './styles.css';
         highlightedSentence,
         showSentence,
         onClose: hideSidePanel,
-        onTranslate: () => translateText({ selectedText, sentenceRange })
+        onTranslate: () => translateText({ selectedText, sentenceRange }),
+        onExpandSentenceStart: () => handleExpandSentenceStart(),
+        onShortenSentenceStart: () => handleShortenSentenceStart(),
+        onExpandSentenceEnd: () => handleExpandSentenceEnd(),
+        onShortenSentenceEnd: () => handleShortenSentenceEnd()
       })
     );
   }
