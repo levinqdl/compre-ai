@@ -15,7 +15,7 @@ export default function SentenceControls({
 }: SentenceControlsProps) {
   return (
     <div>
-      <span className="inline-flex gap-1 mr-1">
+      <span className="inline-flex gap-1 mr-1 select-none">
         <span 
           onClick={onExpandSentenceStart} 
           title="Expand sentence at start" 
@@ -32,7 +32,6 @@ export default function SentenceControls({
         </span>
       </span>
       <span
-        className="select-none"
         dangerouslySetInnerHTML={{ __html: highlightedSentence }}
       />
       <span className="inline-flex gap-1 ml-1">

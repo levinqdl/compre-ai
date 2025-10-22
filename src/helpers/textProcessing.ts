@@ -277,6 +277,129 @@ export function isBlockElement(element: Element | null): boolean {
   return blockElements.includes(element.tagName.toUpperCase());
 }
 
+export function findNextSentenceEnder(text: string, fromOffset: number, direction: 'forward' | 'backward'): number | null {
+  const sentenceEnders = /[.!?]+\s+/g;
+  
+  if (direction === 'backward') {
+    let lastMatchEnd: number | null = null;
+    let match: RegExpExecArray | null;
+    
+    while ((match = sentenceEnders.exec(text)) !== null) {
+      const matchEnd = match.index + match[0].length;
+      if (matchEnd < fromOffset) {
+        lastMatchEnd = matchEnd;
+      }
+    }
+    
+    return lastMatchEnd;
+  } else {
+    sentenceEnders.lastIndex = fromOffset;
+    const match = sentenceEnders.exec(text);
+    if (match) {
+      return match.index + match[0].length;
+    }
+    return null;
+  }
+}
+
+export function expandSentenceBoundary(range: Range | null, boundary: 'start' | 'end'): Range | null {
+  if (!range) return null;
+  
+  const container = boundary === 'start' ? range.startContainer : range.endContainer;
+  const offset = boundary === 'start' ? range.startOffset : range.endOffset;
+  
+  if (container.nodeType !== Node.TEXT_NODE) return null;
+  
+  const textNode = container as Text;
+  const textContent = textNode.textContent || '';
+  
+  if (boundary === 'start') {
+    const newOffset = findNextSentenceEnder(textContent, offset, 'backward');
+    if (newOffset !== null && newOffset < offset) {
+      const newRange = document.createRange();
+      newRange.setStart(textNode, newOffset);
+      newRange.setEnd(range.endContainer, range.endOffset);
+      return newRange;
+    }
+  } else {
+    const newOffset = findNextSentenceEnder(textContent, offset, 'forward');
+    if (newOffset !== null && newOffset > offset) {
+      const newRange = document.createRange();
+      newRange.setStart(range.startContainer, range.startOffset);
+      newRange.setEnd(textNode, newOffset);
+      return newRange;
+    } else if (newOffset === null) {
+      const newRange = document.createRange();
+      newRange.setStart(range.startContainer, range.startOffset);
+      newRange.setEnd(textNode, textContent.length);
+      return newRange;
+    }
+  }
+  
+  return null;
+}
+
+export function shortenSentenceBoundary(range: Range | null, boundary: 'start' | 'end'): Range | null {
+  if (!range) return null;
+  
+  const startContainer = range.startContainer;
+  const endContainer = range.endContainer;
+  const startOffset = range.startOffset;
+  const endOffset = range.endOffset;
+  
+  const MIN_TEXT_LENGTH = 5;
+  
+  if (boundary === 'start') {
+    if (startContainer.nodeType !== Node.TEXT_NODE) return null;
+    
+    const textNode = startContainer as Text;
+    const textContent = textNode.textContent || '';
+    const sentenceEnders = /[.!?]+\s+/g;
+    let match: RegExpExecArray | null;
+    
+    while ((match = sentenceEnders.exec(textContent)) !== null) {
+      const matchEnd = match.index + match[0].length;
+      if (matchEnd > startOffset && matchEnd < endOffset) {
+        const remainingLength = endOffset - matchEnd;
+        if (remainingLength >= MIN_TEXT_LENGTH) {
+          const newRange = document.createRange();
+          newRange.setStart(textNode, matchEnd);
+          newRange.setEnd(endContainer, endOffset);
+          return newRange;
+        }
+      }
+    }
+  } else {
+    if (endContainer.nodeType !== Node.TEXT_NODE) return null;
+    
+    const textNode = endContainer as Text;
+    const textContent = textNode.textContent || '';
+    const sentenceEnders = /[.!?]+\s+/g;
+    let match: RegExpExecArray | null;
+    const matches: number[] = [];
+    
+    while ((match = sentenceEnders.exec(textContent)) !== null) {
+      const matchEnd = match.index + match[0].length;
+      if (matchEnd < endOffset && matchEnd > startOffset) {
+        matches.push(matchEnd);
+      }
+    }
+    
+    if (matches.length > 0) {
+      const newOffset = matches[matches.length - 1];
+      const remainingLength = newOffset - startOffset;
+      if (remainingLength >= MIN_TEXT_LENGTH) {
+        const newRange = document.createRange();
+        newRange.setStart(startContainer, startOffset);
+        newRange.setEnd(textNode, newOffset);
+        return newRange;
+      }
+    }
+  }
+  
+  return null;
+}
+
 export interface CompleteSentenceResult {
   selectedRanges: Range[];
   sentenceRange: Range | null;

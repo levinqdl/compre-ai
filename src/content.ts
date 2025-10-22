@@ -7,7 +7,9 @@ import {
   extractTextFromRange,
   getCompleteSentence,
   highlightSelectedInSentence,
-  mergeOverlappingSelections
+  mergeOverlappingSelections,
+  expandSentenceBoundary,
+  shortenSentenceBoundary
 } from './helpers/textProcessing';
 import SidePanel from './components/SidePanel';
 import './styles.css';
@@ -144,141 +146,40 @@ import './styles.css';
   function handleExpandSentenceStart() {
     if (!currentSentenceRange) return;
     
-    const startContainer = currentSentenceRange.startContainer;
-    const startOffset = currentSentenceRange.startOffset;
-    
-    if (startContainer.nodeType === Node.TEXT_NODE) {
-      const textNode = startContainer as Text;
-      const textContent = textNode.textContent || '';
-      
-      const sentenceEnders = /[.!?]+\s+/g;
-      let newStartOffset = 0;
-      let match: RegExpExecArray | null;
-      let lastMatchEnd = 0;
-      
-      while ((match = sentenceEnders.exec(textContent)) !== null) {
-        if (match.index + match[0].length < startOffset) {
-          lastMatchEnd = match.index + match[0].length;
-        }
-      }
-      
-      newStartOffset = lastMatchEnd;
-      
-      if (newStartOffset < startOffset) {
-        const newRange = document.createRange();
-        newRange.setStart(textNode, newStartOffset);
-        newRange.setEnd(currentSentenceRange.endContainer, currentSentenceRange.endOffset);
-        currentSentenceRange = newRange;
-        
-        showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
-      }
+    const newRange = expandSentenceBoundary(currentSentenceRange, 'start');
+    if (newRange) {
+      currentSentenceRange = newRange;
+      showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
     }
   }
 
   function handleShortenSentenceStart() {
     if (!currentSentenceRange) return;
     
-    const startContainer = currentSentenceRange.startContainer;
-    const startOffset = currentSentenceRange.startOffset;
-    
-    if (startContainer.nodeType === Node.TEXT_NODE) {
-      const textNode = startContainer as Text;
-      const textContent = textNode.textContent || '';
-      
-      const sentenceEnders = /[.!?]+\s+/g;
-      let match: RegExpExecArray | null;
-      let newStartOffset = startOffset;
-      
-      while ((match = sentenceEnders.exec(textContent)) !== null) {
-        const matchEnd = match.index + match[0].length;
-        if (matchEnd > startOffset && matchEnd < currentSentenceRange.endOffset) {
-          newStartOffset = matchEnd;
-          break;
-        }
-      }
-      
-      if (newStartOffset > startOffset && newStartOffset < currentSentenceRange.endOffset) {
-        const newRange = document.createRange();
-        newRange.setStart(textNode, newStartOffset);
-        newRange.setEnd(currentSentenceRange.endContainer, currentSentenceRange.endOffset);
-        currentSentenceRange = newRange;
-        
-        showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
-      }
+    const newRange = shortenSentenceBoundary(currentSentenceRange, 'start');
+    if (newRange) {
+      currentSentenceRange = newRange;
+      showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
     }
   }
 
   function handleExpandSentenceEnd() {
     if (!currentSentenceRange) return;
     
-    const endContainer = currentSentenceRange.endContainer;
-    const endOffset = currentSentenceRange.endOffset;
-    
-    if (endContainer.nodeType === Node.TEXT_NODE) {
-      const textNode = endContainer as Text;
-      const textContent = textNode.textContent || '';
-      
-      const sentenceEnders = /[.!?]+\s+/g;
-      let match: RegExpExecArray | null;
-      let newEndOffset = textContent.length;
-      
-      while ((match = sentenceEnders.exec(textContent)) !== null) {
-        const matchEnd = match.index + match[0].length;
-        if (matchEnd > endOffset) {
-          newEndOffset = matchEnd;
-          break;
-        }
-      }
-      
-      if (newEndOffset === textContent.length && !sentenceEnders.test(textContent.substring(endOffset))) {
-        newEndOffset = textContent.length;
-      }
-      
-      if (newEndOffset > endOffset) {
-        const newRange = document.createRange();
-        newRange.setStart(currentSentenceRange.startContainer, currentSentenceRange.startOffset);
-        newRange.setEnd(textNode, newEndOffset);
-        currentSentenceRange = newRange;
-        
-        showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
-      }
+    const newRange = expandSentenceBoundary(currentSentenceRange, 'end');
+    if (newRange) {
+      currentSentenceRange = newRange;
+      showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
     }
   }
 
   function handleShortenSentenceEnd() {
     if (!currentSentenceRange) return;
     
-    const endContainer = currentSentenceRange.endContainer;
-    const endOffset = currentSentenceRange.endOffset;
-    
-    if (endContainer.nodeType === Node.TEXT_NODE) {
-      const textNode = endContainer as Text;
-      const textContent = textNode.textContent || '';
-      
-      const sentenceEnders = /[.!?]+\s+/g;
-      let match: RegExpExecArray | null;
-      let newEndOffset = currentSentenceRange.startOffset;
-      let matches: number[] = [];
-      
-      while ((match = sentenceEnders.exec(textContent)) !== null) {
-        const matchEnd = match.index + match[0].length;
-        if (matchEnd < endOffset && matchEnd > currentSentenceRange.startOffset) {
-          matches.push(matchEnd);
-        }
-      }
-      
-      if (matches.length > 0) {
-        newEndOffset = matches[matches.length - 1];
-      }
-      
-      if (newEndOffset < endOffset && newEndOffset > currentSentenceRange.startOffset) {
-        const newRange = document.createRange();
-        newRange.setStart(currentSentenceRange.startContainer, currentSentenceRange.startOffset);
-        newRange.setEnd(textNode, newEndOffset);
-        currentSentenceRange = newRange;
-        
-        showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
-      }
+    const newRange = shortenSentenceBoundary(currentSentenceRange, 'end');
+    if (newRange) {
+      currentSentenceRange = newRange;
+      showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
     }
   }
 
