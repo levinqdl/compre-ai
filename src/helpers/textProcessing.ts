@@ -315,11 +315,28 @@ export function expandSentenceBoundary(range: Range | null, boundary: 'start' | 
   
   if (boundary === 'start') {
     const newOffset = findNextSentenceEnder(textContent, offset, 'backward');
+    
     if (newOffset !== null && newOffset < offset) {
       const newRange = document.createRange();
       newRange.setStart(textNode, newOffset);
       newRange.setEnd(range.endContainer, range.endOffset);
       return newRange;
+    } else if (newOffset === null && offset > 0) {
+      const precedingText = textContent.substring(Math.max(0, offset - 3), offset);
+      if (/[.!?]\s*$/.test(precedingText)) {
+        const previousSentenceEnd = findNextSentenceEnder(textContent, offset - 3, 'backward');
+        if (previousSentenceEnd !== null) {
+          const newRange = document.createRange();
+          newRange.setStart(textNode, previousSentenceEnd);
+          newRange.setEnd(range.endContainer, range.endOffset);
+          return newRange;
+        } else {
+          const newRange = document.createRange();
+          newRange.setStart(textNode, 0);
+          newRange.setEnd(range.endContainer, range.endOffset);
+          return newRange;
+        }
+      }
     }
   } else {
     const newOffset = findNextSentenceEnder(textContent, offset, 'forward');
