@@ -3,7 +3,6 @@ import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import {
   buildTranslationRequestPayload,
-  escapeHtml,
   extractTextFromRange,
   getCompleteSentence,
   highlightSelectedInSentence,
@@ -11,37 +10,35 @@ import {
   expandSentenceBoundary,
   shortenSentenceBoundary
 } from './helpers/textProcessing';
+import { SelectionActionManager } from './helpers/selectionActionManager';
 import SidePanel from './components/SidePanel';
 import './styles.css';
 
 (function() {
   'use strict';
 
-  let isSelecting = false;
   let sidePanelContainer: HTMLElement | null = null;
   let sidePanelRoot: Root | null = null;
-  let selectionTimeout: ReturnType<typeof setTimeout> | null = null;
   const CURRENT_HOSTNAME = window.location.hostname.toLowerCase();
   const SITE_PREF_KEY = 'enabledSites';
   let siteEnabled = false;
   let accumulatedSelectedTexts: string[] = [];
   let currentSentenceRange: Range | null = null;
   let apiBaseUrl: string | null = null;
-  let contextMenuOpen = false;
-  let contextMenuTimeout: ReturnType<typeof setTimeout> | null = null;
+  let selectionActionManager: SelectionActionManager;
 
   init().catch((error) => console.error('Failed to initialize Compre AI content script', error));
 
   async function init() {
     await loadApiConfig();
     await refreshSitePreference();
+    selectionActionManager = new SelectionActionManager(() => processSelection());
+    selectionActionManager.initialize();
   chrome.storage.onChanged.addListener((changes: Record<string, any>, areaName: 'sync' | 'local' | 'managed' | 'session') => {
       if (areaName === 'sync' && Object.prototype.hasOwnProperty.call(changes, SITE_PREF_KEY)) {
         applySitePreference(changes[SITE_PREF_KEY]?.newValue || []);
       }
     });
-    document.addEventListener('selectionchange', debounceSelectionChange);
-    document.addEventListener('contextmenu', handleContextMenu);
   chrome.runtime.onMessage.addListener((request: any, sender: any, sendResponse: (response?: any) => void) => {
       handleMessage(request, sender, sendResponse);
       return true;
@@ -84,24 +81,15 @@ import './styles.css';
     }
   }
 
-  function handleContextMenu(): void {
-    contextMenuOpen = true;
-    
-    if (contextMenuTimeout) {
-      clearTimeout(contextMenuTimeout);
+  function processSelection(): void {
+    if (!siteEnabled) {
+      hideSidePanel();
+      accumulatedSelectedTexts = [];
+      return;
     }
-    
-    contextMenuTimeout = setTimeout(() => {
-      contextMenuOpen = false;
-    }, 500);
-  }
 
-  function debounceSelectionChange(): void {
-    if (selectionTimeout) {
-      clearTimeout(selectionTimeout);
-    }
-  const sidePanelElem = document.querySelector('.compre-ai-side-panel') as HTMLElement | null;
-  const selection = window.getSelection();
+    const sidePanelElem = document.querySelector('.compre-ai-side-panel') as HTMLElement | null;
+    const selection = window.getSelection();
     if (sidePanelElem && selection && selection.rangeCount > 0) {
       for (let i = 0; i < selection.rangeCount; i++) {
         const range = selection.getRangeAt(i);
@@ -110,42 +98,25 @@ import './styles.css';
         }
       }
     }
-    
-    if (contextMenuOpen) {
-      return;
-    }
-    
-    if (!siteEnabled) {
-      hideSidePanel();
-      accumulatedSelectedTexts = [];
-      return;
-    }
-  selectionTimeout = setTimeout(() => {
-      if (!siteEnabled) {
-        hideSidePanel();
+
+    const { selectedRanges, sentenceRange } = getCompleteSentence();
+    if (selectedRanges && selectedRanges.length > 0) {
+      if (sentenceRange && !isSameSentenceRange(currentSentenceRange, sentenceRange)) {
         accumulatedSelectedTexts = [];
-        currentSentenceRange = null;
-        return;
+        currentSentenceRange = sentenceRange;
       }
-      const { selectedRanges, sentenceRange } = getCompleteSentence();
-      if (selectedRanges && selectedRanges.length > 0) {
-        if (sentenceRange && !isSameSentenceRange(currentSentenceRange, sentenceRange)) {
-          accumulatedSelectedTexts = [];
-          currentSentenceRange = sentenceRange;
+      selectedRanges.forEach(range => {
+        const text = extractTextFromRange(range);
+        if (text) {
+          accumulatedSelectedTexts = mergeOverlappingSelections(accumulatedSelectedTexts, text);
         }
-        selectedRanges.forEach(range => {
-          const text = extractTextFromRange(range);
-          if (text) {
-            accumulatedSelectedTexts = mergeOverlappingSelections(accumulatedSelectedTexts, text);
-          }
-        });
-        showSidePanel(accumulatedSelectedTexts, sentenceRange);
-      } else {
-        if (accumulatedSelectedTexts.length === 0) {
-          hideSidePanel();
-        }
+      });
+      showSidePanel(accumulatedSelectedTexts, sentenceRange);
+    } else {
+      if (accumulatedSelectedTexts.length === 0) {
+        hideSidePanel();
       }
-    }, 300);
+    }
   }
 
   function getSelectedText(): string {
