@@ -27,6 +27,8 @@ import './styles.css';
   let accumulatedSelectedTexts: string[] = [];
   let currentSentenceRange: Range | null = null;
   let apiBaseUrl: string | null = null;
+  let contextMenuOpen = false;
+  let contextMenuTimeout: ReturnType<typeof setTimeout> | null = null;
 
   init().catch((error) => console.error('Failed to initialize Compre AI content script', error));
 
@@ -39,6 +41,7 @@ import './styles.css';
       }
     });
     document.addEventListener('selectionchange', debounceSelectionChange);
+    document.addEventListener('contextmenu', handleContextMenu);
   chrome.runtime.onMessage.addListener((request: any, sender: any, sendResponse: (response?: any) => void) => {
       handleMessage(request, sender, sendResponse);
       return true;
@@ -81,6 +84,18 @@ import './styles.css';
     }
   }
 
+  function handleContextMenu(): void {
+    contextMenuOpen = true;
+    
+    if (contextMenuTimeout) {
+      clearTimeout(contextMenuTimeout);
+    }
+    
+    contextMenuTimeout = setTimeout(() => {
+      contextMenuOpen = false;
+    }, 500);
+  }
+
   function debounceSelectionChange(): void {
     if (selectionTimeout) {
       clearTimeout(selectionTimeout);
@@ -95,6 +110,11 @@ import './styles.css';
         }
       }
     }
+    
+    if (contextMenuOpen) {
+      return;
+    }
+    
     if (!siteEnabled) {
       hideSidePanel();
       accumulatedSelectedTexts = [];
