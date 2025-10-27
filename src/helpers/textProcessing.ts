@@ -256,36 +256,54 @@ export function buildTranslationRequestPayload({ selectedText, completeSentence,
   };
 }
 
-export function mergeOverlappingSelections(existingSelections: string[], newSelection: string): string[] {
-  if (existingSelections.includes(newSelection)) {
-    return existingSelections;
-  }
-  
-  const hasOverlap = (str1: string, str2: string): boolean => {
-    if (str1.includes(str2) || str2.includes(str1)) {
-      return true;
-    }
-    
-    const words1 = str1.split(/\s+/);
-    const words2 = str2.split(/\s+/);
-    
-    for (const word1 of words1) {
-      for (const word2 of words2) {
-        if (word1.length > 2 && word2.length > 2 && (word1.includes(word2) || word2.includes(word1))) {
-          return true;
+export function mergeOverlappingRanges(existingRanges: Range[], newRange: Range): Range[] {
+  const hasOverlapOrContainment = (range1: Range, range2: Range): boolean => {
+    try {
+      const text1 = extractTextFromRange(range1);
+      const text2 = extractTextFromRange(range2);
+      
+      if (!text1 || !text2) return false;
+      
+      if (text1 === text2) return true;
+      
+      if (text1.includes(text2) || text2.includes(text1)) {
+        return true;
+      }
+      
+      const words1 = text1.split(/\s+/).filter(w => w.length > 2);
+      const words2 = text2.split(/\s+/).filter(w => w.length > 2);
+      
+      for (const word1 of words1) {
+        for (const word2 of words2) {
+          if (word1.includes(word2) || word2.includes(word1)) {
+            return true;
+          }
         }
       }
+      
+      return false;
+    } catch (e) {
+      return false;
     }
-    
-    return false;
   };
   
-  const filteredSelections = existingSelections.filter(existing => {
-    return !hasOverlap(existing, newSelection);
+  const newText = extractTextFromRange(newRange);
+  if (!newText) return existingRanges;
+  
+  const isDuplicate = existingRanges.some(existing => {
+    return extractTextFromRange(existing) === newText;
   });
   
-  filteredSelections.push(newSelection);
-  return filteredSelections;
+  if (isDuplicate) {
+    return existingRanges;
+  }
+  
+  const filteredRanges = existingRanges.filter(existing => {
+    return !hasOverlapOrContainment(existing, newRange);
+  });
+  
+  filteredRanges.push(newRange.cloneRange());
+  return filteredRanges;
 }
 
 export function mapNormalizedToOriginal(text: string, normalizedOffset: number): number {

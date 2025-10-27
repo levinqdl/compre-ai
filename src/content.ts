@@ -6,7 +6,7 @@ import {
   extractTextFromRange,
   getCompleteSentence,
   highlightSelectedInSentence,
-  mergeOverlappingSelections,
+  mergeOverlappingRanges,
   expandSentenceBoundary,
   shortenSentenceBoundary
 } from './helpers/textProcessing';
@@ -22,7 +22,6 @@ import './styles.css';
   const CURRENT_HOSTNAME = window.location.hostname.toLowerCase();
   const SITE_PREF_KEY = 'enabledSites';
   let siteEnabled = false;
-  let accumulatedSelectedTexts: string[] = [];
   let accumulatedSelectedRanges: Range[] = [];
   let currentSentenceRange: Range | null = null;
   let apiBaseUrl: string | null = null;
@@ -85,7 +84,6 @@ import './styles.css';
   function processSelection(): void {
     if (!siteEnabled) {
       hideSidePanel();
-      accumulatedSelectedTexts = [];
       accumulatedSelectedRanges = [];
       return;
     }
@@ -104,20 +102,18 @@ import './styles.css';
     const { selectedRanges, sentenceRange } = getCompleteSentence();
     if (selectedRanges && selectedRanges.length > 0) {
       if (sentenceRange && !isSameSentenceRange(currentSentenceRange, sentenceRange)) {
-        accumulatedSelectedTexts = [];
         accumulatedSelectedRanges = [];
         currentSentenceRange = sentenceRange;
       }
       selectedRanges.forEach(range => {
         const text = extractTextFromRange(range);
         if (text) {
-          accumulatedSelectedTexts = mergeOverlappingSelections(accumulatedSelectedTexts, text);
-          accumulatedSelectedRanges.push(range.cloneRange());
+          accumulatedSelectedRanges = mergeOverlappingRanges(accumulatedSelectedRanges, range);
         }
       });
       showSidePanel(accumulatedSelectedRanges, sentenceRange);
     } else {
-      if (accumulatedSelectedTexts.length === 0) {
+      if (accumulatedSelectedRanges.length === 0) {
         hideSidePanel();
       }
     }
@@ -221,7 +217,7 @@ import './styles.css';
       sidePanelContainer.parentNode.removeChild(sidePanelContainer);
       sidePanelContainer = null;
     }
-    accumulatedSelectedTexts = [];
+    accumulatedSelectedRanges = [];
     currentSentenceRange = null;
   }
 

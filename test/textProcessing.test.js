@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { extractSentenceContaining, escapeHtml, highlightSelectedInSentence, buildTranslationRequestPayload, findSentenceRangeContaining, extractTextFromRange, createRangeFromOffsets, mergeOverlappingSelections } from '../src/helpers/textProcessing.ts';
+import { extractSentenceContaining, escapeHtml, highlightSelectedInSentence, buildTranslationRequestPayload, findSentenceRangeContaining, extractTextFromRange, createRangeFromOffsets } from '../src/helpers/textProcessing.ts';
 
 describe('extractSentenceContaining', () => {
   it('returns the full sentence containing the selection', () => {
@@ -248,42 +248,5 @@ describe('createRangeFromOffsets', () => {
     expect(range.startOffset).toBe(6);
     expect(range.endOffset).toBe(11);
     expect(range.toString()).toBe('world');
-  });
-});
-
-describe('mergeOverlappingSelections', () => {
-  it('replaces overlapping text with the longer selection', () => {
-    const existingSelections = ['eprogramming eepro'];
-    const newSelection = 'reprogramming eeprom';
-    const result = mergeOverlappingSelections(existingSelections, newSelection);
-    expect(result).toEqual(['reprogramming eeprom']);
-  });
-
-  it('keeps both selections when they do not overlap', () => {
-    const existingSelections = ['hello'];
-    const newSelection = 'world';
-    const result = mergeOverlappingSelections(existingSelections, newSelection);
-    expect(result).toEqual(['hello', 'world']);
-  });
-
-  it('replaces multiple overlapping selections', () => {
-    const existingSelections = ['programming', 'gram ee'];
-    const newSelection = 'reprogramming eeprom';
-    const result = mergeOverlappingSelections(existingSelections, newSelection);
-    expect(result).toEqual(['reprogramming eeprom']);
-  });
-
-  it('keeps non-overlapping and replaces overlapping selections', () => {
-    const existingSelections = ['hello', 'eprogramming'];
-    const newSelection = 'reprogramming eeprom';
-    const result = mergeOverlappingSelections(existingSelections, newSelection);
-    expect(result).toEqual(['hello', 'reprogramming eeprom']);
-  });
-
-  it('does not add duplicate selection', () => {
-    const existingSelections = ['reprogramming eeprom'];
-    const newSelection = 'reprogramming eeprom';
-    const result = mergeOverlappingSelections(existingSelections, newSelection);
-    expect(result).toEqual(['reprogramming eeprom']);
   });
 });
