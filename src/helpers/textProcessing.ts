@@ -119,7 +119,7 @@ export function createRangeFromOffsets(textNode: Node, startOffset: number, endO
   return range;
 }
 
-function escapeHtml(unsafe: string): string {
+export function escapeHtml(unsafe: string): string {
   return unsafe
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -130,28 +130,107 @@ function escapeHtml(unsafe: string): string {
 
 type Selectable = string | { toString: () => string } | Range;
 
-export function highlightSelectedInSentence(sentence: Selectable, selectedText: Selectable | Selectable[]): string {
-  const extractText = (input: Selectable | undefined | null): string => {
-    if (!input) return '';
-    if (typeof input === 'string') return input;
-    if (typeof (input as any).toString === 'function') return (input as any).toString();
-    return '';
-  };
-  const sentenceStr = extractText(sentence);
-  if (!sentenceStr) return escapeHtml('');
-  if (!selectedText || (Array.isArray(selectedText) && selectedText.length === 0)) return escapeHtml(sentenceStr);
+interface NodeOffset {
+  start: number;
+  end: number;
+  nodeStart: number;
+}
 
-  let escapedSentence = escapeHtml(sentenceStr);
-  const textArray = Array.isArray(selectedText) ? selectedText : [selectedText];
-  textArray.forEach((text) => {
-    const textStr = extractText(text);
-    if (textStr && textStr.trim()) {
-      const escapedSelected = escapeHtml(textStr);
-      const regex = new RegExp(escapedSelected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      escapedSentence = escapedSentence.replace(regex, '<mark style="background-color: #fff3cd; padding: 1px 2px; border-radius: 2px;">$&</mark>');
+export function highlightSelectedInSentence(sentenceRange: Range, selectedRanges: Range[]): string {
+  const sentenceStr = sentenceRange.toString();
+  
+  if (!sentenceStr) return escapeHtml('');
+  if (!selectedRanges || selectedRanges.length === 0) return escapeHtml(sentenceStr);
+
+  const sentenceTextNodes = getTextNodesIn(sentenceRange.commonAncestorContainer);
+  const highlights: Array<{ start: number; end: number }> = [];
+  let currentOffset = 0;
+  
+  const nodeOffsetMap = new Map<Text, NodeOffset>();
+  sentenceTextNodes.forEach((node) => {
+    const nodeText = node.textContent || '';
+    let nodeStartInSentence = 0;
+    let nodeEndInSentence = nodeText.length;
+    
+    if (node === sentenceRange.startContainer) {
+      nodeStartInSentence = sentenceRange.startOffset;
+    }
+    if (node === sentenceRange.endContainer) {
+      nodeEndInSentence = sentenceRange.endOffset;
+    }
+    
+    const isNodeInSentenceRange = 
+      sentenceRange.intersectsNode(node) &&
+      nodeStartInSentence < nodeEndInSentence;
+    
+    if (isNodeInSentenceRange) {
+      const effectiveLength = nodeEndInSentence - nodeStartInSentence;
+      nodeOffsetMap.set(node, { 
+        start: currentOffset, 
+        end: currentOffset + effectiveLength,
+        nodeStart: nodeStartInSentence 
+      });
+      currentOffset += effectiveLength;
     }
   });
-  return escapedSentence;
+  
+  selectedRanges.forEach((selectedRange) => {
+    const selectedTextNodes = getTextNodesIn(selectedRange.commonAncestorContainer);
+    
+    selectedTextNodes.forEach((selectedNode) => {
+      const nodeMapping = nodeOffsetMap.get(selectedNode);
+      if (nodeMapping) {
+        let selectionStart = 0;
+        let selectionEnd = (selectedNode.textContent || '').length;
+        
+        if (selectedRange.startContainer === selectedNode) {
+          selectionStart = selectedRange.startOffset;
+        }
+        if (selectedRange.endContainer === selectedNode) {
+          selectionEnd = selectedRange.endOffset;
+        }
+        
+        const adjustedStart = Math.max(0, selectionStart - nodeMapping.nodeStart);
+        const adjustedEnd = Math.max(0, selectionEnd - nodeMapping.nodeStart);
+        
+        if (adjustedStart < adjustedEnd) {
+          highlights.push({
+            start: nodeMapping.start + adjustedStart,
+            end: nodeMapping.start + adjustedEnd
+          });
+        }
+      }
+    });
+  });
+  
+  highlights.sort((a, b) => a.start - b.start);
+  
+  const mergedHighlights: Array<{ start: number; end: number }> = [];
+  highlights.forEach((highlight) => {
+    if (mergedHighlights.length === 0) {
+      mergedHighlights.push(highlight);
+    } else {
+      const last = mergedHighlights[mergedHighlights.length - 1];
+      if (highlight.start <= last.end) {
+        last.end = Math.max(last.end, highlight.end);
+      } else {
+        mergedHighlights.push(highlight);
+      }
+    }
+  });
+  
+  let result = '';
+  let lastIndex = 0;
+  mergedHighlights.forEach((highlight) => {
+    result += escapeHtml(sentenceStr.substring(lastIndex, highlight.start));
+    result += '<mark style="background-color: #fff3cd; padding: 1px 2px; border-radius: 2px;">';
+    result += escapeHtml(sentenceStr.substring(highlight.start, highlight.end));
+    result += '</mark>';
+    lastIndex = highlight.end;
+  });
+  result += escapeHtml(sentenceStr.substring(lastIndex));
+  
+  return result;
 }
 
 export function buildTranslationRequestPayload({ selectedText, completeSentence, targetLanguage }: { selectedText: Selectable | Selectable[]; completeSentence: Selectable; targetLanguage?: string }) {

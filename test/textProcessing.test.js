@@ -39,19 +39,73 @@ describe('escapeHtml', () => {
 });
 
 describe('highlightSelectedInSentence', () => {
-  it('wraps selection with mark tags', () => {
-    const sentence = 'This is a simple test sentence.';
-    const selection = 'simple test';
-    const result = highlightSelectedInSentence(sentence, selection);
-    expect(result).toContain('<mark');
-    expect(result).toMatch(/<mark[^>]*>simple test<\/mark>/i);
+  beforeEach(() => {
+    document.body.innerHTML = '';
   });
 
-  it('is case-insensitive', () => {
-    const sentence = 'Case Insensitive Match';
-    const selection = 'case insensitive';
-    const result = highlightSelectedInSentence(sentence, selection);
-    expect(result.toLowerCase()).toContain('<mark');
+  it('wraps selection with mark tags', () => {
+    const container = document.createElement('div');
+    container.textContent = 'This is a simple test sentence.';
+    document.body.appendChild(container);
+
+    const sentenceRange = document.createRange();
+    sentenceRange.selectNodeContents(container);
+
+    const selectedRange = document.createRange();
+    const textNode = container.firstChild;
+    selectedRange.setStart(textNode, 10);
+    selectedRange.setEnd(textNode, 21);
+
+    const result = highlightSelectedInSentence(sentenceRange, [selectedRange]);
+    expect(result).toContain('<mark');
+    expect(result).toMatch(/<mark[^>]*>simple test<\/mark>/);
+  });
+
+  it('handles multiple selected ranges', () => {
+    const container = document.createElement('div');
+    container.textContent = 'This is a test with multiple selections.';
+    document.body.appendChild(container);
+
+    const sentenceRange = document.createRange();
+    sentenceRange.selectNodeContents(container);
+
+    const textNode = container.firstChild;
+    
+    const selectedRange1 = document.createRange();
+    selectedRange1.setStart(textNode, 10);
+    selectedRange1.setEnd(textNode, 14);
+    
+    const selectedRange2 = document.createRange();
+    selectedRange2.setStart(textNode, 20);
+    selectedRange2.setEnd(textNode, 28);
+
+    const result = highlightSelectedInSentence(sentenceRange, [selectedRange1, selectedRange2]);
+    expect(result).toContain('<mark');
+    expect(result).toMatch(/<mark[^>]*>test<\/mark>/);
+    expect(result).toMatch(/<mark[^>]*>multiple<\/mark>/);
+  });
+
+  it('highlights correctly in non-first sentence of paragraph', () => {
+    const container = document.createElement('div');
+    container.textContent = 'First sentence here. Second sentence with selected text. Third sentence.';
+    document.body.appendChild(container);
+
+    const textNode = container.firstChild;
+    
+    const selectedRange = document.createRange();
+    selectedRange.setStart(textNode, 42);
+    selectedRange.setEnd(textNode, 55);
+
+    const sentenceRange = document.createRange();
+    sentenceRange.setStart(textNode, 21);
+    sentenceRange.setEnd(textNode, 57);
+
+    const result = highlightSelectedInSentence(sentenceRange, [selectedRange]);
+    
+    expect(result).toContain('Second sentence with');
+    expect(result).toContain('<mark');
+    expect(result).toMatch(/<mark[^>]*>selected text<\/mark>/);
+    expect(result).not.toContain('First sentence');
   });
 });
 

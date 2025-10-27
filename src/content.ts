@@ -23,6 +23,7 @@ import './styles.css';
   const SITE_PREF_KEY = 'enabledSites';
   let siteEnabled = false;
   let accumulatedSelectedTexts: string[] = [];
+  let accumulatedSelectedRanges: Range[] = [];
   let currentSentenceRange: Range | null = null;
   let apiBaseUrl: string | null = null;
   let selectionActionManager: SelectionActionManager;
@@ -85,6 +86,7 @@ import './styles.css';
     if (!siteEnabled) {
       hideSidePanel();
       accumulatedSelectedTexts = [];
+      accumulatedSelectedRanges = [];
       return;
     }
 
@@ -103,15 +105,17 @@ import './styles.css';
     if (selectedRanges && selectedRanges.length > 0) {
       if (sentenceRange && !isSameSentenceRange(currentSentenceRange, sentenceRange)) {
         accumulatedSelectedTexts = [];
+        accumulatedSelectedRanges = [];
         currentSentenceRange = sentenceRange;
       }
       selectedRanges.forEach(range => {
         const text = extractTextFromRange(range);
         if (text) {
           accumulatedSelectedTexts = mergeOverlappingSelections(accumulatedSelectedTexts, text);
+          accumulatedSelectedRanges.push(range.cloneRange());
         }
       });
-      showSidePanel(accumulatedSelectedTexts, sentenceRange);
+      showSidePanel(accumulatedSelectedTexts, accumulatedSelectedRanges, sentenceRange);
     } else {
       if (accumulatedSelectedTexts.length === 0) {
         hideSidePanel();
@@ -140,7 +144,7 @@ import './styles.css';
     const newRange = expandSentenceBoundary(currentSentenceRange, 'start');
     if (newRange) {
       currentSentenceRange = newRange;
-      showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
+      showSidePanel(accumulatedSelectedTexts, accumulatedSelectedRanges, currentSentenceRange);
     }
   }
 
@@ -150,7 +154,7 @@ import './styles.css';
     const newRange = shortenSentenceBoundary(currentSentenceRange, 'start');
     if (newRange) {
       currentSentenceRange = newRange;
-      showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
+      showSidePanel(accumulatedSelectedTexts, accumulatedSelectedRanges, currentSentenceRange);
     }
   }
 
@@ -160,7 +164,7 @@ import './styles.css';
     const newRange = expandSentenceBoundary(currentSentenceRange, 'end');
     if (newRange) {
       currentSentenceRange = newRange;
-      showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
+      showSidePanel(accumulatedSelectedTexts, accumulatedSelectedRanges, currentSentenceRange);
     }
   }
 
@@ -170,11 +174,11 @@ import './styles.css';
     const newRange = shortenSentenceBoundary(currentSentenceRange, 'end');
     if (newRange) {
       currentSentenceRange = newRange;
-      showSidePanel(accumulatedSelectedTexts, currentSentenceRange);
+      showSidePanel(accumulatedSelectedTexts, accumulatedSelectedRanges, currentSentenceRange);
     }
   }
 
-  function showSidePanel(selectedText: string | string[], sentenceRange: Range | null) {
+  function showSidePanel(selectedText: string | string[], selectedRanges: Range[], sentenceRange: Range | null) {
     if (!siteEnabled) return;
     if (!sidePanelContainer) {
       sidePanelContainer = document.createElement('div');
@@ -185,7 +189,7 @@ import './styles.css';
     }
     
     const sentenceText = sentenceRange ? extractTextFromRange(sentenceRange) : '';
-    const highlightedSentence = sentenceRange ? highlightSelectedInSentence(sentenceRange, selectedText) : '';
+    const highlightedSentence = sentenceRange ? highlightSelectedInSentence(sentenceRange, selectedRanges) : '';
     const selectedTextStr = Array.isArray(selectedText) ? selectedText.join(' ') : selectedText;
     const showSentence = Boolean(sentenceRange && sentenceText && sentenceText.trim() !== selectedTextStr.trim());
     
