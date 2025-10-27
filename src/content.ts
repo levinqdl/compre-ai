@@ -115,7 +115,7 @@ import './styles.css';
           accumulatedSelectedRanges.push(range.cloneRange());
         }
       });
-      showSidePanel(accumulatedSelectedTexts, accumulatedSelectedRanges, sentenceRange);
+      showSidePanel(accumulatedSelectedRanges, sentenceRange);
     } else {
       if (accumulatedSelectedTexts.length === 0) {
         hideSidePanel();
@@ -144,7 +144,7 @@ import './styles.css';
     const newRange = expandSentenceBoundary(currentSentenceRange, 'start');
     if (newRange) {
       currentSentenceRange = newRange;
-      showSidePanel(accumulatedSelectedTexts, accumulatedSelectedRanges, currentSentenceRange);
+      showSidePanel(accumulatedSelectedRanges, currentSentenceRange);
     }
   }
 
@@ -154,7 +154,7 @@ import './styles.css';
     const newRange = shortenSentenceBoundary(currentSentenceRange, 'start');
     if (newRange) {
       currentSentenceRange = newRange;
-      showSidePanel(accumulatedSelectedTexts, accumulatedSelectedRanges, currentSentenceRange);
+      showSidePanel(accumulatedSelectedRanges, currentSentenceRange);
     }
   }
 
@@ -164,7 +164,7 @@ import './styles.css';
     const newRange = expandSentenceBoundary(currentSentenceRange, 'end');
     if (newRange) {
       currentSentenceRange = newRange;
-      showSidePanel(accumulatedSelectedTexts, accumulatedSelectedRanges, currentSentenceRange);
+      showSidePanel(accumulatedSelectedRanges, currentSentenceRange);
     }
   }
 
@@ -174,11 +174,11 @@ import './styles.css';
     const newRange = shortenSentenceBoundary(currentSentenceRange, 'end');
     if (newRange) {
       currentSentenceRange = newRange;
-      showSidePanel(accumulatedSelectedTexts, accumulatedSelectedRanges, currentSentenceRange);
+      showSidePanel(accumulatedSelectedRanges, currentSentenceRange);
     }
   }
 
-  function showSidePanel(selectedText: string | string[], selectedRanges: Range[], sentenceRange: Range | null) {
+  function showSidePanel(selectedRanges: Range[], sentenceRange: Range | null) {
     if (!siteEnabled) return;
     if (!sidePanelContainer) {
       sidePanelContainer = document.createElement('div');
@@ -188,9 +188,10 @@ import './styles.css';
       sidePanelRoot = createRoot(sidePanelContainer);
     }
     
+    const selectedText = selectedRanges.map(range => extractTextFromRange(range));
     const sentenceText = sentenceRange ? extractTextFromRange(sentenceRange) : '';
     const highlightedSentence = sentenceRange ? highlightSelectedInSentence(sentenceRange, selectedRanges) : '';
-    const selectedTextStr = Array.isArray(selectedText) ? selectedText.join(' ') : selectedText;
+    const selectedTextStr = selectedText.join(' ');
     const showSentence = Boolean(sentenceRange && sentenceText && sentenceText.trim() !== selectedTextStr.trim());
     
     sidePanelRoot?.render(
