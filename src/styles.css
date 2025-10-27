@@ -19,4 +19,12 @@
       right: 0;
     }
   }
+
+  .compre-ai-side-panel {
+    user-select: none;
+  }
+
+  .compre-ai-sentence-selectable {
+    user-select: text;
+  }
 }

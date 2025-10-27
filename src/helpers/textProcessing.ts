@@ -617,3 +617,106 @@ export function getCompleteSentence(): CompleteSentenceResult {
   
   return { selectedRanges, sentenceRange: primaryRange.cloneRange() };
 }
+
+export function mapSidePanelSelectionToSentenceRange(
+  sidePanelContainer: HTMLElement,
+  originalSentenceRange: Range
+): Range | null {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return null;
+  }
+
+  const sidePanelRange = selection.getRangeAt(0);
+  if (!sidePanelContainer.contains(sidePanelRange.commonAncestorContainer)) {
+    return null;
+  }
+
+  const selectedText = sidePanelRange.toString().trim();
+  
+  if (!selectedText) {
+    return null;
+  }
+
+  const originalSentenceText = extractTextFromRange(originalSentenceRange);
+  
+  const normalizedSentence = originalSentenceText.replace(/\s+/g, ' ').trim();
+  const normalizedSelected = selectedText.replace(/\s+/g, ' ');
+
+  const matchIndex = normalizedSentence.toLowerCase().indexOf(normalizedSelected.toLowerCase());
+  if (matchIndex === -1) {
+    return null;
+  }
+
+  const startOffsetNormalized = matchIndex;
+  const endOffsetNormalized = matchIndex + normalizedSelected.length;
+
+  const containerElement = originalSentenceRange.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+    ? (originalSentenceRange.commonAncestorContainer as Element)
+    : originalSentenceRange.commonAncestorContainer.parentElement;
+
+  if (!containerElement) {
+    return null;
+  }
+
+  const textNodes = getTextNodesIn(containerElement);
+  const rangeTextNodes = textNodes.filter(node => originalSentenceRange.intersectsNode(node));
+
+  if (rangeTextNodes.length === 0) {
+    return null;
+  }
+
+  let normalizedPosition = 0;
+  let resultStart: { node: Text; offset: number } | null = null;
+  let resultEnd: { node: Text; offset: number } | null = null;
+  let wasWhitespace = true;
+
+  for (const node of rangeTextNodes) {
+    const nodeText = node.textContent || '';
+
+    for (let i = 0; i < nodeText.length; i++) {
+      const char = nodeText[i];
+      const isWhitespace = /\s/.test(char);
+
+      if (normalizedPosition === startOffsetNormalized && resultStart === null) {
+        resultStart = { node, offset: i };
+      }
+
+      if (normalizedPosition === endOffsetNormalized && resultEnd === null) {
+        resultEnd = { node, offset: i };
+        break;
+      }
+
+      if (isWhitespace) {
+        if (!wasWhitespace) {
+          normalizedPosition++;
+          wasWhitespace = true;
+        }
+      } else {
+        if (wasWhitespace) {
+          wasWhitespace = false;
+        }
+        normalizedPosition++;
+      }
+    }
+
+    if (resultEnd) {
+      break;
+    }
+
+    if (normalizedPosition === endOffsetNormalized && resultEnd === null) {
+      resultEnd = { node, offset: nodeText.length };
+    }
+  }
+
+  if (!resultStart || !resultEnd) {
+    return null;
+  }
+
+  const resultRange = document.createRange();
+  resultRange.setStart(resultStart.node, resultStart.offset);
+  resultRange.setEnd(resultEnd.node, resultEnd.offset);
+  
+  return resultRange;
+}
+

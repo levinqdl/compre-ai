@@ -1,5 +1,5 @@
 /// <reference types="chrome" />
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import SentenceControls from './SentenceControls';
 
 interface TranslationResult {
@@ -21,6 +21,7 @@ interface SidePanelProps {
   onShortenSentenceStart?: () => void;
   onExpandSentenceEnd?: () => void;
   onShortenSentenceEnd?: () => void;
+  onSentenceSelection?: (container: HTMLElement) => void;
 }
 
 export default function SidePanel({
@@ -33,15 +34,23 @@ export default function SidePanel({
   onExpandSentenceStart,
   onShortenSentenceStart,
   onExpandSentenceEnd,
-  onShortenSentenceEnd
+  onShortenSentenceEnd,
+  onSentenceSelection
 }: SidePanelProps) {
   const [isTranslating, setIsTranslating] = useState(false);
   const [result, setResult] = useState<TranslationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sentenceContainerRef = useRef<HTMLDivElement>(null);
 
   const displayText = Array.isArray(selectedText)
     ? selectedText.join(' • ')
     : selectedText;
+
+  const handleSentenceMouseUp = useCallback(() => {
+    if (sentenceContainerRef.current && onSentenceSelection) {
+      onSentenceSelection(sentenceContainerRef.current);
+    }
+  }, [onSentenceSelection]);
 
   const handleTranslate = async () => {
     setIsTranslating(true);
@@ -69,7 +78,7 @@ export default function SidePanel({
   };
 
   return (
-    <div className="fixed top-0 right-0 w-96 h-screen bg-white border-l-2 border-gray-200 shadow-2xl z-[2147483647] font-sans overflow-y-auto animate-slide-in">
+    <div className="compre-ai-side-panel fixed top-0 right-0 w-96 h-screen bg-white border-l-2 border-gray-200 shadow-2xl z-[2147483647] font-sans overflow-y-auto animate-slide-in">
       <div className="sticky top-0 z-10 px-5 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
         <h3 className="m-0 text-gray-800 text-base font-semibold">Compre AI Translator</h3>
         <button
@@ -85,7 +94,10 @@ export default function SidePanel({
         {showSentence && (
           <div className="mb-5">
             <label className="block mb-2 font-semibold text-gray-800">Complete Sentence:</label>
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-gray-800 leading-relaxed break-words max-h-40 overflow-y-auto">
+            <div 
+              ref={sentenceContainerRef}
+              onMouseUp={handleSentenceMouseUp}
+              className="compre-ai-sentence-selectable bg-blue-50 border border-blue-200 rounded-md p-3 text-gray-800 leading-relaxed break-words max-h-40 overflow-y-auto">
               <SentenceControls
                 highlightedSentence={highlightedSentence}
                 onExpandSentenceStart={onExpandSentenceStart}

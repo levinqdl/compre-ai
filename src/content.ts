@@ -8,7 +8,8 @@ import {
   highlightSelectedInSentence,
   mergeOverlappingRanges,
   expandSentenceBoundary,
-  shortenSentenceBoundary
+  shortenSentenceBoundary,
+  mapSidePanelSelectionToSentenceRange
 } from './helpers/textProcessing';
 import { SelectionActionManager } from './helpers/selectionActionManager';
 import SidePanel from './components/SidePanel';
@@ -174,6 +175,19 @@ import './styles.css';
     }
   }
 
+  function handleSentenceSelection(sidePanelContainer: HTMLElement) {
+    if (!currentSentenceRange) return;
+    
+    const mappedRange = mapSidePanelSelectionToSentenceRange(sidePanelContainer, currentSentenceRange);
+    if (mappedRange) {
+      const text = extractTextFromRange(mappedRange);
+      if (text) {
+        accumulatedSelectedRanges = mergeOverlappingRanges(accumulatedSelectedRanges, mappedRange);
+        showSidePanel(accumulatedSelectedRanges, currentSentenceRange);
+      }
+    }
+  }
+
   function showSidePanel(selectedRanges: Range[], sentenceRange: Range | null) {
     if (!siteEnabled) return;
     if (!sidePanelContainer) {
@@ -201,7 +215,8 @@ import './styles.css';
         onExpandSentenceStart: () => handleExpandSentenceStart(),
         onShortenSentenceStart: () => handleShortenSentenceStart(),
         onExpandSentenceEnd: () => handleExpandSentenceEnd(),
-        onShortenSentenceEnd: () => handleShortenSentenceEnd()
+        onShortenSentenceEnd: () => handleShortenSentenceEnd(),
+        onSentenceSelection: (container) => handleSentenceSelection(container)
       })
     );
   }
