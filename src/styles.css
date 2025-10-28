@@ -1,9 +1,11 @@
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities" layer(utilities);
 
-#compre-ai-root {
-  @import "tailwindcss/preflight.css" layer(base);
-  @import "tailwindcss/utilities" layer(utilities) important;
+:host {
+  all: initial;
+  display: contents;
 }
 
 @layer utilities {

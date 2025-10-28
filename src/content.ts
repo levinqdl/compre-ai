@@ -13,11 +13,13 @@ import {
 } from './helpers/textProcessing';
 import { SelectionActionManager } from './helpers/selectionActionManager';
 import SidePanel from './components/SidePanel';
-import './styles.css';
+import styleText from './styles.css?inline';
 
 (function() {
   'use strict';
 
+  let sidePanelHostElement: HTMLElement | null = null;
+  let sidePanelShadowRoot: ShadowRoot | null = null;
   let sidePanelContainer: HTMLElement | null = null;
   let sidePanelRoot: Root | null = null;
   const CURRENT_HOSTNAME = window.location.hostname.toLowerCase();
@@ -89,12 +91,11 @@ import './styles.css';
       return;
     }
 
-    const sidePanelElem = document.querySelector('.compre-ai-side-panel') as HTMLElement | null;
     const selection = window.getSelection();
-    if (sidePanelElem && selection && selection.rangeCount > 0) {
+    if (sidePanelShadowRoot && selection && selection.rangeCount > 0) {
       for (let i = 0; i < selection.rangeCount; i++) {
         const range = selection.getRangeAt(i);
-        if (sidePanelElem.contains(range.startContainer) || sidePanelElem.contains(range.endContainer)) {
+        if (sidePanelShadowRoot.contains(range.startContainer) || sidePanelShadowRoot.contains(range.endContainer)) {
           return;
         }
       }
@@ -191,10 +192,21 @@ import './styles.css';
   function showSidePanel(selectedRanges: Range[], sentenceRange: Range | null) {
     if (!siteEnabled) return;
     if (!sidePanelContainer) {
+      sidePanelHostElement = document.createElement('div');
+      sidePanelHostElement.id = 'compre-ai-host';
+      document.body.appendChild(sidePanelHostElement);
+      
+      sidePanelShadowRoot = sidePanelHostElement.attachShadow({ mode: 'open' });
+      
+      const styleElement = document.createElement('style');
+      styleElement.textContent = styleText;
+      sidePanelShadowRoot.appendChild(styleElement);
+      
       sidePanelContainer = document.createElement('div');
       sidePanelContainer.className = 'compre-ai-root';
       sidePanelContainer.id = "compre-ai-root";
-      document.body.appendChild(sidePanelContainer);
+      sidePanelShadowRoot.appendChild(sidePanelContainer);
+      
       sidePanelRoot = createRoot(sidePanelContainer);
     }
     
@@ -228,8 +240,10 @@ import './styles.css';
       sidePanelRoot.unmount();
       sidePanelRoot = null;
     }
-    if (sidePanelContainer && sidePanelContainer.parentNode) {
-      sidePanelContainer.parentNode.removeChild(sidePanelContainer);
+    if (sidePanelHostElement && sidePanelHostElement.parentNode) {
+      sidePanelHostElement.parentNode.removeChild(sidePanelHostElement);
+      sidePanelHostElement = null;
+      sidePanelShadowRoot = null;
       sidePanelContainer = null;
     }
     accumulatedSelectedRanges = [];

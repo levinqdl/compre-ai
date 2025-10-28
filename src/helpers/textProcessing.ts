@@ -622,7 +622,15 @@ export function mapSidePanelSelectionToSentenceRange(
   sidePanelContainer: HTMLElement,
   originalSentenceRange: Range
 ): Range | null {
-  const selection = window.getSelection();
+  const rootNode = sidePanelContainer.getRootNode();
+  let selection: Selection | null = null;
+  
+  if (rootNode instanceof ShadowRoot && 'getSelection' in rootNode) {
+    selection = (rootNode as any).getSelection();
+  } else {
+    selection = window.getSelection();
+  }
+  
   if (!selection || selection.rangeCount === 0) {
     return null;
   }

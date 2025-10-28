@@ -12,4 +12,7 @@ export default defineConfig({
       fileName: () => 'content.js',
     },
   },
+  css: {
+    transformer: 'postcss',
+  },
 });
