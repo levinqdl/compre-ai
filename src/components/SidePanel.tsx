@@ -159,7 +159,7 @@ export default function SidePanel({
                     >
                       {item.text && (
                         <div className="font-semibold mb-1 text-compre-purple-500">
-                          "{item.text}"
+                          {item.text}
                         </div>
                       )}
                       {item.explanation && (
