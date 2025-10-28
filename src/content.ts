@@ -199,7 +199,7 @@ import styleText from './styles.css?inline';
       sidePanelShadowRoot = sidePanelHostElement.attachShadow({ mode: 'open' });
       
       const styleElement = document.createElement('style');
-      styleElement.textContent = styleText;
+      styleElement.textContent = styleText.replace("((-webkit-hyphens:none)) and ", "").replace("(-webkit-hyphens: none) and ", "").replace("(-webkit-hyphens:none) and ", "");
       sidePanelShadowRoot.appendChild(styleElement);
       
       sidePanelContainer = document.createElement('div');
