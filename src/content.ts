@@ -24,22 +24,28 @@ import styleText from './styles.css?inline';
   let sidePanelRoot: Root | null = null;
   const CURRENT_HOSTNAME = window.location.hostname.toLowerCase();
   const SITE_PREF_KEY = 'enabledSites';
+  const PANEL_POSITION_KEY = 'panelPosition';
   let siteEnabled = false;
   let accumulatedSelectedRanges: Range[] = [];
   let currentSentenceRange: Range | null = null;
   let apiBaseUrl: string | null = null;
   let selectionActionManager: SelectionActionManager;
+  let panelPosition: 'left' | 'right' | 'bottom' = 'right';
 
   init().catch((error) => console.error('Failed to initialize Compre AI content script', error));
 
   async function init() {
     await loadApiConfig();
     await refreshSitePreference();
+    await loadPanelPosition();
     selectionActionManager = new SelectionActionManager(() => processSelection());
     selectionActionManager.initialize();
   chrome.storage.onChanged.addListener((changes: Record<string, any>, areaName: 'sync' | 'local' | 'managed' | 'session') => {
       if (areaName === 'sync' && Object.prototype.hasOwnProperty.call(changes, SITE_PREF_KEY)) {
         applySitePreference(changes[SITE_PREF_KEY]?.newValue || []);
+      }
+      if (areaName === 'local' && Object.prototype.hasOwnProperty.call(changes, PANEL_POSITION_KEY)) {
+        panelPosition = changes[PANEL_POSITION_KEY]?.newValue || 'right';
       }
     });
   chrome.runtime.onMessage.addListener((request: any, sender: any, sendResponse: (response?: any) => void) => {
@@ -47,6 +53,25 @@ import styleText from './styles.css?inline';
       return true;
     });
     console.log('Compre AI content script initialized');
+  }
+
+  async function loadPanelPosition() {
+    try {
+      const stored = await chrome.storage.local.get([PANEL_POSITION_KEY]);
+      panelPosition = stored[PANEL_POSITION_KEY] || 'right';
+    } catch (error) {
+      console.error('Error loading panel position', error);
+      panelPosition = 'right';
+    }
+  }
+
+  async function savePanelPosition(position: 'left' | 'right' | 'bottom') {
+    try {
+      await chrome.storage.local.set({ [PANEL_POSITION_KEY]: position });
+      panelPosition = position;
+    } catch (error) {
+      console.error('Error saving panel position', error);
+    }
   }
 
   async function loadApiConfig() {
@@ -228,7 +253,12 @@ import styleText from './styles.css?inline';
         onShortenSentenceStart: () => handleShortenSentenceStart(),
         onExpandSentenceEnd: () => handleExpandSentenceEnd(),
         onShortenSentenceEnd: () => handleShortenSentenceEnd(),
-        onSentenceSelection: (container) => handleSentenceSelection(container)
+        onSentenceSelection: (container) => handleSentenceSelection(container),
+        onPositionChange: (position) => {
+          savePanelPosition(position);
+          showSidePanel(accumulatedSelectedRanges, currentSentenceRange);
+        },
+        position: panelPosition
       })
     );
   }

@@ -9,16 +9,42 @@
 }
 
 @layer utilities {
-  .animate-slide-in {
-    animation: slideIn 0.3s ease-in-out;
+  .animate-slide-in-right {
+    animation: slideInRight 0.3s ease-in-out;
   }
   
-  @keyframes slideIn {
+  .animate-slide-in-left {
+    animation: slideInLeft 0.3s ease-in-out;
+  }
+
+  .animate-slide-in-bottom {
+    animation: slideInBottom 0.3s ease-in-out;
+  }
+  
+  @keyframes slideInRight {
     from {
       right: -400px;
     }
     to {
       right: 0;
+    }
+  }
+
+  @keyframes slideInLeft {
+    from {
+      left: -400px;
+    }
+    to {
+      left: 0;
+    }
+  }
+
+  @keyframes slideInBottom {
+    from {
+      bottom: -400px;
+    }
+    to {
+      bottom: 0;
     }
   }
 

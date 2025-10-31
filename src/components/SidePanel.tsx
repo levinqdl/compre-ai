@@ -1,5 +1,6 @@
 /// <reference types="chrome" />
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { PanelLeftClose, PanelRightClose, PanelBottomClose } from 'lucide-react';
 import SentenceControls from './SentenceControls';
 
 interface TranslationResult {
@@ -9,6 +10,8 @@ interface TranslationResult {
   model?: string;
   explanations?: Array<{ text: string; explanation: string }>;
 }
+
+type PanelPosition = 'left' | 'right' | 'bottom';
 
 interface SidePanelProps {
   selectedText: string | string[];
@@ -22,6 +25,8 @@ interface SidePanelProps {
   onExpandSentenceEnd?: () => void;
   onShortenSentenceEnd?: () => void;
   onSentenceSelection?: (container: HTMLElement) => void;
+  onPositionChange?: (position: PanelPosition) => void;
+  position?: PanelPosition;
 }
 
 export default function SidePanel({
@@ -35,12 +40,19 @@ export default function SidePanel({
   onShortenSentenceStart,
   onExpandSentenceEnd,
   onShortenSentenceEnd,
-  onSentenceSelection
+  onSentenceSelection,
+  onPositionChange,
+  position = 'right'
 }: SidePanelProps) {
   const [isTranslating, setIsTranslating] = useState(false);
   const [result, setResult] = useState<TranslationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [panelPosition, setPanelPosition] = useState<PanelPosition>(position);
   const sentenceContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setPanelPosition(position);
+  }, [position]);
 
   const displayText = Array.isArray(selectedText)
     ? selectedText.join(' • ')
@@ -77,17 +89,79 @@ export default function SidePanel({
     }
   };
 
+  const handlePositionChange = (newPosition: PanelPosition) => {
+    setPanelPosition(newPosition);
+    if (onPositionChange) {
+      onPositionChange(newPosition);
+    }
+  };
+
+  const getPositionClasses = () => {
+    switch (panelPosition) {
+      case 'left':
+        return 'left-0 top-0 w-96 h-screen border-r-2 animate-slide-in-left';
+      case 'bottom':
+        return 'bottom-0 left-0 right-0 w-full h-96 border-t-2 animate-slide-in-bottom';
+      case 'right':
+      default:
+        return 'right-0 top-0 w-96 h-screen border-l-2 animate-slide-in-right';
+    }
+  };
+  
+  const positionClasses = getPositionClasses();
+  
+  const renderPositionToggle = () => (
+    <div className="flex items-center gap-1 bg-gray-100 rounded-md p-1">
+      <button
+        onClick={() => handlePositionChange('left')}
+        className={`p-1.5 rounded transition-colors ${
+          panelPosition === 'left' 
+            ? 'bg-white shadow text-blue-600' 
+            : 'bg-transparent text-gray-600 hover:bg-gray-200'
+        }`}
+        title="Left"
+      >
+        <PanelLeftClose size={16} />
+      </button>
+      <button
+        onClick={() => handlePositionChange('bottom')}
+        className={`p-1.5 rounded transition-colors ${
+          panelPosition === 'bottom' 
+            ? 'bg-white shadow text-blue-600' 
+            : 'bg-transparent text-gray-600 hover:bg-gray-200'
+        }`}
+        title="Bottom"
+      >
+        <PanelBottomClose size={16} />
+      </button>
+      <button
+        onClick={() => handlePositionChange('right')}
+        className={`p-1.5 rounded transition-colors ${
+          panelPosition === 'right' 
+            ? 'bg-white shadow text-blue-600' 
+            : 'bg-transparent text-gray-600 hover:bg-gray-200'
+        }`}
+        title="Right"
+      >
+        <PanelRightClose size={16} />
+      </button>
+    </div>
+  );
+
   return (
-    <div className="compre-ai-side-panel fixed top-0 right-0 w-96 h-screen bg-white border-l-2 border-gray-200 shadow-2xl z-[2147483647] font-sans overflow-y-auto animate-slide-in">
+    <div className={`compre-ai-side-panel fixed bg-white border-gray-200 shadow-2xl z-[2147483647] font-sans overflow-y-auto ${positionClasses}`}>
       <div className="sticky top-0 z-10 px-5 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
         <h3 className="m-0 text-gray-800 text-base font-semibold">Compre AI Translator</h3>
-        <button
-          onClick={onClose}
-          className="bg-transparent border-none text-2xl cursor-pointer text-gray-600 p-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-gray-200"
-          title="Close"
-        >
-          ×
-        </button>
+        <div className="flex items-center gap-2">
+          {panelPosition === 'bottom' && renderPositionToggle()}
+          <button
+            onClick={onClose}
+            className="bg-transparent border-none text-2xl cursor-pointer text-gray-600 p-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-gray-200"
+            title="Close"
+          >
+            ×
+          </button>
+        </div>
       </div>
 
       <div className="p-5">
@@ -186,6 +260,12 @@ export default function SidePanel({
           </div>
         )}
       </div>
+
+      {(panelPosition === 'left' || panelPosition === 'right') && (
+        <div className="sticky bottom-0 z-10 px-5 py-3 bg-gray-50 border-t border-gray-200 flex justify-center">
+          {renderPositionToggle()}
+        </div>
+      )}
     </div>
   );
 }
