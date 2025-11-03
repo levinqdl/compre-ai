@@ -647,17 +647,61 @@ export function mapSidePanelSelectionToSentenceRange(
   }
 
   const originalSentenceText = extractTextFromRange(originalSentenceRange);
+  const normalizedOriginalText = originalSentenceText.replace(/\s+/g, ' ').trim();
   
-  const normalizedSentence = originalSentenceText.replace(/\s+/g, ' ').trim();
-  const normalizedSelected = selectedText.replace(/\s+/g, ' ');
-
-  const matchIndex = normalizedSentence.toLowerCase().indexOf(normalizedSelected.toLowerCase());
-  if (matchIndex === -1) {
+  const sidePanelFullText = sidePanelContainer.textContent || '';
+  const normalizedSidePanelText = sidePanelFullText.replace(/\s+/g, ' ').trim();
+  
+  const sidePanelTextNodes = getTextNodesIn(sidePanelContainer);
+  let sidePanelNormalizedStart = -1;
+  let sidePanelNormalizedEnd = -1;
+  let sidePanelNormalizedPos = 0;
+  let sidePanelWasWhitespace = true;
+  
+  for (const node of sidePanelTextNodes) {
+    const nodeText = node.textContent || '';
+    for (let i = 0; i < nodeText.length; i++) {
+      const char = nodeText[i];
+      const isWhitespace = /\s/.test(char);
+      
+      if (node === sidePanelRange.startContainer && i === sidePanelRange.startOffset && sidePanelNormalizedStart === -1) {
+        sidePanelNormalizedStart = sidePanelNormalizedPos;
+      }
+      
+      if (isWhitespace) {
+        if (!sidePanelWasWhitespace) {
+          sidePanelNormalizedPos++;
+          sidePanelWasWhitespace = true;
+        }
+      } else {
+        sidePanelWasWhitespace = false;
+        sidePanelNormalizedPos++;
+      }
+      
+      if (node === sidePanelRange.endContainer && i === sidePanelRange.endOffset - 1 && sidePanelNormalizedEnd === -1) {
+        sidePanelNormalizedEnd = sidePanelNormalizedPos;
+      }
+    }
+  }
+  
+  if (sidePanelNormalizedStart === -1 || sidePanelNormalizedEnd === -1) {
     return null;
   }
-
-  const startOffsetNormalized = matchIndex;
-  const endOffsetNormalized = matchIndex + normalizedSelected.length;
+  
+  const alignmentOffset = normalizedSidePanelText.indexOf(normalizedOriginalText);
+  if (alignmentOffset === -1) {
+    return null;
+  }
+  
+  const adjustedStart = sidePanelNormalizedStart - alignmentOffset;
+  const adjustedEnd = sidePanelNormalizedEnd - alignmentOffset;
+  
+  if (adjustedStart < 0 || adjustedEnd > normalizedOriginalText.length) {
+    return null;
+  }
+  
+  const startOffsetNormalized = adjustedStart;
+  const endOffsetNormalized = adjustedEnd;
 
   const containerElement = originalSentenceRange.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
     ? (originalSentenceRange.commonAncestorContainer as Element)
@@ -681,8 +725,17 @@ export function mapSidePanelSelectionToSentenceRange(
 
   for (const node of rangeTextNodes) {
     const nodeText = node.textContent || '';
+    let startIdx = 0;
+    let endIdx = nodeText.length;
 
-    for (let i = 0; i < nodeText.length; i++) {
+    if (node === originalSentenceRange.startContainer) {
+      startIdx = originalSentenceRange.startOffset;
+    }
+    if (node === originalSentenceRange.endContainer) {
+      endIdx = originalSentenceRange.endOffset;
+    }
+
+    for (let i = startIdx; i < endIdx; i++) {
       const char = nodeText[i];
       const isWhitespace = /\s/.test(char);
 
@@ -701,9 +754,7 @@ export function mapSidePanelSelectionToSentenceRange(
           wasWhitespace = true;
         }
       } else {
-        if (wasWhitespace) {
-          wasWhitespace = false;
-        }
+        wasWhitespace = false;
         normalizedPosition++;
       }
     }
@@ -713,7 +764,7 @@ export function mapSidePanelSelectionToSentenceRange(
     }
 
     if (normalizedPosition === endOffsetNormalized && resultEnd === null) {
-      resultEnd = { node, offset: nodeText.length };
+      resultEnd = { node, offset: endIdx };
     }
   }
 

@@ -302,4 +302,33 @@ describe('mapSidePanelSelectionToSentenceRange', () => {
     expect(result).not.toBeNull();
     expect(result.toString()).toBe('sentence');
   });
+
+  it('should correctly map selection after highlighted word in side panel with mark tags', () => {
+    const mainContainer = document.createElement('p');
+    mainContainer.innerHTML = '"Waste time?"  Ugh.  I do some marketing ops work, where businesses call me in after their data is FUCKED, and they realize due to a lack of normalization, they can\'t run any of their marketing campaigns.';
+    document.body.appendChild(mainContainer);
+
+    const mainRange = document.createRange();
+    const mainTextNode = mainContainer.firstChild;
+    mainRange.setStart(mainTextNode, 27);
+    mainRange.setEnd(mainTextNode, 188);
+
+    const sidePanelContainer = document.createElement('span');
+    sidePanelContainer.innerHTML = '  I do some marketing <mark style="background-color: #fff3cd; padding: 1px 2px; border-radius: 2px;">ops</mark> work, where businesses call me in after their data is FUCKED, and they realize due to a lack of normalization, they can\'t run any of their marketing campaigns.';
+    document.body.appendChild(sidePanelContainer);
+
+    const textNodes = getTextNodesIn(sidePanelContainer);
+    const sidePanelRange = document.createRange();
+    sidePanelRange.setStart(textNodes[2], 24);
+    sidePanelRange.setEnd(textNodes[2], 28);
+
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(sidePanelRange);
+
+    const result = mapSidePanelSelectionToSentenceRange(sidePanelContainer, mainRange);
+    
+    expect(result).not.toBeNull();
+    expect(result.toString()).toBe('call');
+  });
 });
