@@ -50,10 +50,6 @@ export default function SidePanel({
   const [panelPosition, setPanelPosition] = useState<PanelPosition>(position);
   const sentenceContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setPanelPosition(position);
-  }, [position]);
-
   const displayText = Array.isArray(selectedText)
     ? selectedText.join(' • ')
     : selectedText;
@@ -149,7 +145,7 @@ export default function SidePanel({
   );
 
   return (
-    <div className={`compre-ai-side-panel fixed bg-white border-gray-200 shadow-2xl z-[2147483647] font-sans overflow-y-auto ${positionClasses}`}>
+    <div className={`compre-ai-side-panel flex flex-col fixed bg-white border-gray-200 shadow-2xl z-[2147483647] font-sans overflow-y-auto ${positionClasses}`}>
       <div className="sticky top-0 z-10 px-5 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
         <h3 className="m-0 text-gray-800 text-base font-semibold">Compre AI Translator</h3>
         <div className="flex items-center gap-2">
@@ -164,7 +160,7 @@ export default function SidePanel({
         </div>
       </div>
 
-      <div className="p-5">
+      <div className="p-5 flex-1">
         {showSentence && (
           <div className="mb-5">
             <label className="block mb-2 font-semibold text-gray-800">Complete Sentence:</label>
