@@ -9,7 +9,8 @@ import {
   mergeOverlappingRanges,
   expandSentenceBoundary,
   shortenSentenceBoundary,
-  mapSidePanelSelectionToSentenceRange
+  mapSidePanelSelectionToSentenceRange,
+  canExpandSentenceBoundary
 } from './helpers/textProcessing';
 import { SelectionActionManager } from './helpers/selectionActionManager';
 import SidePanel from './components/SidePanel';
@@ -239,7 +240,15 @@ import styleText from './styles.css?inline';
     const sentenceText = sentenceRange ? extractTextFromRange(sentenceRange) : '';
     const highlightedSentence = sentenceRange ? highlightSelectedInSentence(sentenceRange, selectedRanges) : '';
     const selectedTextStr = selectedText.join(' ');
-    const showSentence = Boolean(sentenceRange && sentenceText && sentenceText.trim() !== selectedTextStr.trim());
+    const canExpand = sentenceRange && (
+      canExpandSentenceBoundary(sentenceRange, 'start') || 
+      canExpandSentenceBoundary(sentenceRange, 'end')
+    );
+    const showSentence = Boolean(
+      sentenceRange && 
+      sentenceText && 
+      (sentenceText.trim() !== selectedTextStr.trim() || canExpand)
+    );
     
     sidePanelRoot?.render(
       React.createElement(SidePanel, {

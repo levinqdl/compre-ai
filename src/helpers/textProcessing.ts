@@ -399,6 +399,72 @@ export function findNextSentenceEnder(text: string, fromOffset: number, directio
   }
 }
 
+export function canExpandSentenceBoundary(range: Range | null, boundary: 'start' | 'end'): boolean {
+  if (!range) return false;
+  
+  const container = boundary === 'start' ? range.startContainer : range.endContainer;
+  const offset = boundary === 'start' ? range.startOffset : range.endOffset;
+  
+  if (container.nodeType !== Node.TEXT_NODE) return false;
+  
+  const textNode = container as Text;
+  const textContent = textNode.textContent || '';
+  
+  if (boundary === 'start') {
+    const newOffset = findNextSentenceEnder(textContent, offset, 'backward');
+    if (newOffset !== null && newOffset < offset) return true;
+    
+    if (offset > 0) {
+      const precedingText = textContent.substring(Math.max(0, offset - 3), offset);
+      if (/[.!?]\s*$/.test(precedingText)) {
+        const previousSentenceEnd = findNextSentenceEnder(textContent, offset - 3, 'backward');
+        if (previousSentenceEnd !== null) return true;
+        if (offset > 0) return true;
+      }
+    }
+    
+    let blockContainer: Element | null = textNode.parentElement;
+    while (blockContainer && !isBlockElement(blockContainer) && blockContainer.parentElement) {
+      blockContainer = blockContainer.parentElement;
+    }
+    
+    if (blockContainer) {
+      const textNodes = getTextNodesIn(blockContainer);
+      const currentIndex = textNodes.indexOf(textNode);
+      if (currentIndex > 0) {
+        for (let i = currentIndex - 1; i >= 0; i--) {
+          const prevNode = textNodes[i];
+          const prevText = (prevNode.textContent || '').trim();
+          if (prevText.length > 0) return true;
+        }
+      }
+    }
+  } else {
+    const newOffset = findNextSentenceEnder(textContent, offset, 'forward');
+    if (newOffset !== null && newOffset > offset) return true;
+    if (offset < textContent.length) return true;
+    
+    let blockContainer: Element | null = textNode.parentElement;
+    while (blockContainer && !isBlockElement(blockContainer) && blockContainer.parentElement) {
+      blockContainer = blockContainer.parentElement;
+    }
+    
+    if (blockContainer) {
+      const textNodes = getTextNodesIn(blockContainer);
+      const currentIndex = textNodes.indexOf(textNode);
+      if (currentIndex < textNodes.length - 1) {
+        for (let i = currentIndex + 1; i < textNodes.length; i++) {
+          const nextNode = textNodes[i];
+          const nextText = (nextNode.textContent || '').trim();
+          if (nextText.length > 0) return true;
+        }
+      }
+    }
+  }
+  
+  return false;
+}
+
 export function expandSentenceBoundary(range: Range | null, boundary: 'start' | 'end'): Range | null {
   if (!range) return null;
   
@@ -435,6 +501,39 @@ export function expandSentenceBoundary(range: Range | null, boundary: 'start' | 
         }
       }
     }
+    
+    if (newOffset === null || newOffset === 0) {
+      let blockContainer: Element | null = textNode.parentElement;
+      while (blockContainer && !isBlockElement(blockContainer) && blockContainer.parentElement) {
+        blockContainer = blockContainer.parentElement;
+      }
+      
+      if (blockContainer) {
+        const textNodes = getTextNodesIn(blockContainer);
+        const currentIndex = textNodes.indexOf(textNode);
+        
+        if (currentIndex > 0) {
+          for (let i = currentIndex - 1; i >= 0; i--) {
+            const prevNode = textNodes[i];
+            const prevText = prevNode.textContent || '';
+            const sentenceEnd = findNextSentenceEnder(prevText, prevText.length, 'backward');
+            
+            if (sentenceEnd !== null) {
+              const newRange = document.createRange();
+              newRange.setStart(prevNode, sentenceEnd);
+              newRange.setEnd(range.endContainer, range.endOffset);
+              return newRange;
+            }
+          }
+          
+          const firstNode = textNodes[0];
+          const newRange = document.createRange();
+          newRange.setStart(firstNode, 0);
+          newRange.setEnd(range.endContainer, range.endOffset);
+          return newRange;
+        }
+      }
+    }
   } else {
     const newOffset = findNextSentenceEnder(textContent, offset, 'forward');
     if (newOffset !== null && newOffset > offset) {
@@ -447,6 +546,39 @@ export function expandSentenceBoundary(range: Range | null, boundary: 'start' | 
       newRange.setStart(range.startContainer, range.startOffset);
       newRange.setEnd(textNode, textContent.length);
       return newRange;
+    }
+    
+    if (newOffset === null || newOffset === textContent.length) {
+      let blockContainer: Element | null = textNode.parentElement;
+      while (blockContainer && !isBlockElement(blockContainer) && blockContainer.parentElement) {
+        blockContainer = blockContainer.parentElement;
+      }
+      
+      if (blockContainer) {
+        const textNodes = getTextNodesIn(blockContainer);
+        const currentIndex = textNodes.indexOf(textNode);
+        
+        if (currentIndex < textNodes.length - 1) {
+          for (let i = currentIndex + 1; i < textNodes.length; i++) {
+            const nextNode = textNodes[i];
+            const nextText = nextNode.textContent || '';
+            const sentenceEnd = findNextSentenceEnder(nextText, 0, 'forward');
+            
+            if (sentenceEnd !== null) {
+              const newRange = document.createRange();
+              newRange.setStart(range.startContainer, range.startOffset);
+              newRange.setEnd(nextNode, sentenceEnd);
+              return newRange;
+            }
+          }
+          
+          const lastNode = textNodes[textNodes.length - 1];
+          const newRange = document.createRange();
+          newRange.setStart(range.startContainer, range.startOffset);
+          newRange.setEnd(lastNode, (lastNode.textContent || '').length);
+          return newRange;
+        }
+      }
     }
   }
   
@@ -473,13 +605,53 @@ export function shortenSentenceBoundary(range: Range | null, boundary: 'start' |
     
     while ((match = sentenceEnders.exec(textContent)) !== null) {
       const matchEnd = match.index + match[0].length;
-      if (matchEnd > startOffset && matchEnd < endOffset) {
-        const remainingLength = endOffset - matchEnd;
-        if (remainingLength >= MIN_TEXT_LENGTH) {
+      if (matchEnd > startOffset) {
+        if (startContainer === endContainer && matchEnd < endOffset) {
+          const remainingLength = endOffset - matchEnd;
+          if (remainingLength >= MIN_TEXT_LENGTH) {
+            const newRange = document.createRange();
+            newRange.setStart(textNode, matchEnd);
+            newRange.setEnd(endContainer, endOffset);
+            return newRange;
+          }
+        } else if (startContainer !== endContainer) {
           const newRange = document.createRange();
           newRange.setStart(textNode, matchEnd);
           newRange.setEnd(endContainer, endOffset);
           return newRange;
+        }
+      }
+    }
+    
+    if (startContainer !== endContainer) {
+      let blockContainer: Element | null = textNode.parentElement;
+      while (blockContainer && !isBlockElement(blockContainer) && blockContainer.parentElement) {
+        blockContainer = blockContainer.parentElement;
+      }
+      
+      if (blockContainer) {
+        const textNodes = getTextNodesIn(blockContainer);
+        const startIndex = textNodes.indexOf(textNode);
+        const endIndex = textNodes.indexOf(endContainer as Text);
+        
+        if (startIndex >= 0 && endIndex > startIndex) {
+          for (let i = startIndex + 1; i <= endIndex; i++) {
+            const node = textNodes[i];
+            const nodeText = node.textContent || '';
+            const sentenceEnderMatch = /[.!?]+\s+/g;
+            let nodeMatch: RegExpExecArray | null;
+            
+            while ((nodeMatch = sentenceEnderMatch.exec(nodeText)) !== null) {
+              const matchEnd = nodeMatch.index + nodeMatch[0].length;
+              if (node === endContainer && matchEnd >= endOffset) {
+                break;
+              }
+              const newRange = document.createRange();
+              newRange.setStart(node, matchEnd);
+              newRange.setEnd(endContainer, endOffset);
+              return newRange;
+            }
+          }
         }
       }
     }
@@ -494,19 +666,69 @@ export function shortenSentenceBoundary(range: Range | null, boundary: 'start' |
     
     while ((match = sentenceEnders.exec(textContent)) !== null) {
       const matchEnd = match.index + match[0].length;
-      if (matchEnd < endOffset && matchEnd > startOffset) {
-        matches.push(matchEnd);
+      if (matchEnd < endOffset) {
+        if (startContainer === endContainer && matchEnd > startOffset) {
+          matches.push(matchEnd);
+        } else if (startContainer !== endContainer) {
+          matches.push(matchEnd);
+        }
       }
     }
     
     if (matches.length > 0) {
       const newOffset = matches[matches.length - 1];
-      const remainingLength = newOffset - startOffset;
-      if (remainingLength >= MIN_TEXT_LENGTH) {
+      if (startContainer === endContainer) {
+        const remainingLength = newOffset - startOffset;
+        if (remainingLength >= MIN_TEXT_LENGTH) {
+          const newRange = document.createRange();
+          newRange.setStart(startContainer, startOffset);
+          newRange.setEnd(textNode, newOffset);
+          return newRange;
+        }
+      } else {
         const newRange = document.createRange();
         newRange.setStart(startContainer, startOffset);
         newRange.setEnd(textNode, newOffset);
         return newRange;
+      }
+    }
+    
+    if (startContainer !== endContainer) {
+      let blockContainer: Element | null = textNode.parentElement;
+      while (blockContainer && !isBlockElement(blockContainer) && blockContainer.parentElement) {
+        blockContainer = blockContainer.parentElement;
+      }
+      
+      if (blockContainer) {
+        const textNodes = getTextNodesIn(blockContainer);
+        const startIndex = textNodes.indexOf(startContainer as Text);
+        const endIndex = textNodes.indexOf(textNode);
+        
+        if (startIndex >= 0 && endIndex > startIndex) {
+          for (let i = endIndex - 1; i >= startIndex; i--) {
+            const node = textNodes[i];
+            const nodeText = node.textContent || '';
+            const sentenceEnderMatch = /[.!?]+\s+/g;
+            const nodeMatches: number[] = [];
+            let nodeMatch: RegExpExecArray | null;
+            
+            while ((nodeMatch = sentenceEnderMatch.exec(nodeText)) !== null) {
+              const matchEnd = nodeMatch.index + nodeMatch[0].length;
+              if (node === startContainer && matchEnd <= startOffset) {
+                continue;
+              }
+              nodeMatches.push(matchEnd);
+            }
+            
+            if (nodeMatches.length > 0) {
+              const matchEnd = nodeMatches[nodeMatches.length - 1];
+              const newRange = document.createRange();
+              newRange.setStart(startContainer, startOffset);
+              newRange.setEnd(node, matchEnd);
+              return newRange;
+            }
+          }
+        }
       }
     }
   }
