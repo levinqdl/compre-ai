@@ -331,7 +331,8 @@ import styleText from './styles.css?inline';
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
           body: JSON.stringify(requestBody),
-          signal: controller.signal
+          signal: controller.signal,
+          credentials: 'include',
         });
         
         clearTimeout(timeoutId);
