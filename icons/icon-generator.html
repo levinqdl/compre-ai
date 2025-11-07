@@ -85,6 +85,12 @@
                 <button class="download-btn" onclick="downloadIcon('canvas16', 'icon16.png')">Download</button>
             </div>
             <div class="icon-size">
+                <h4>28×28px</h4>
+                <canvas id="canvas28" width="28" height="28"></canvas>
+                <br>
+                <button class="download-btn" onclick="downloadIcon('canvas28', 'icon28.png')">Download</button>
+            </div>
+            <div class="icon-size">
                 <h4>32×32px</h4>
                 <canvas id="canvas32" width="32" height="32"></canvas>
                 <br>
@@ -95,6 +101,12 @@
                 <canvas id="canvas48" width="48" height="48"></canvas>
                 <br>
                 <button class="download-btn" onclick="downloadIcon('canvas48', 'icon48.png')">Download</button>
+            </div>
+            <div class="icon-size">
+                <h4>108×108px</h4>
+                <canvas id="canvas108" width="108" height="108"></canvas>
+                <br>
+                <button class="download-btn" onclick="downloadIcon('canvas108', 'icon108.png')">Download</button>
             </div>
             <div class="icon-size">
                 <h4>128×128px</h4>
@@ -179,8 +191,10 @@
         // Render all sizes when page loads
         window.onload = function() {
             renderSVGToCanvas('canvas16', 16);
+            renderSVGToCanvas('canvas28', 28);
             renderSVGToCanvas('canvas32', 32);
             renderSVGToCanvas('canvas48', 48);
+            renderSVGToCanvas('canvas108', 108);
             renderSVGToCanvas('canvas128', 128);
         };
     </script>
