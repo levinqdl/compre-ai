@@ -155,26 +155,22 @@ export default function Popup() {
 
   async function handleLogin() {
     try {
-      showNotification('Redirecting to login...', 'info');
+      showNotification('Opening login page...', 'info');
       const loginUrl = ((window as any).API_BASE_URL) || 'https://your-translation-api.com';
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const tab = tabs[0];
-      if (tab?.id) await chrome.tabs.update(tab.id, { url: `${loginUrl}?client_type=extension` });
+      await chrome.tabs.create({ url: `${loginUrl}?client_type=extension` });
     } catch (error) {
       console.error('Login error:', error);
-      showNotification('❌ Failed to redirect to login page.', 'error');
+      showNotification('❌ Failed to open login page.', 'error');
     }
   }
 
   async function handleLogout() {
     try {
       const loginUrl = ((window as any).API_BASE_URL) || 'https://your-translation-api.com';
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const tab = tabs[0];
-      if (tab?.id) await chrome.tabs.update(tab.id, { url: `${loginUrl}?client_type=extension` });
+      await chrome.tabs.create({ url: `${loginUrl}?client_type=extension` });
     } catch (error) {
       console.error('Logout error:', error);
-      showNotification('❌ Failed to redirect to logout page.', 'error');
+      showNotification('❌ Failed to open logout page.', 'error');
     }
   }
 
