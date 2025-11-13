@@ -6,6 +6,36 @@
 :host {
   all: initial;
   display: contents;
+  font-size: 16px;
+}
+
+@layer theme {
+  .compre-ai-root {
+    --spacing: 0.25em;
+
+    --text-xs: 0.75em;
+    --text-sm: 0.875em;
+    --text-base: 1em;
+    --text-lg: 1.125em;
+    --text-xl: 1.25em;
+    --text-2xl: 1.5em;
+    --text-3xl: 1.875em;
+    --text-4xl: 2.25em;
+    --text-5xl: 3em;
+    --text-6xl: 3.75em;
+    --text-7xl: 4.5em;
+    --text-8xl: 6em;
+    --text-9xl: 8em;
+
+    --radius-xs: 0.125em;
+    --radius-sm: 0.25em;
+    --radius-md: 0.375em;
+    --radius-lg: 0.5em;
+    --radius-xl: 0.75em;
+    --radius-2xl: 1em;
+    --radius-3xl: 1.5em;
+    --radius-4xl: 2em;
+  }
 }
 
 @layer utilities {
