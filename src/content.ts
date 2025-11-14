@@ -339,7 +339,7 @@ import styleText from './styles.css?inline';
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
-        const translation = data.translation ?? data.translated_text ?? requestBody.completeSentence;
+        const translation = data.translation ?? data.translated_text ?? undefined;
         const targetLanguage = data.targetLanguage ?? data.target_language ?? requestBody.to ?? TARGET_LANGUAGE;
         const detectedLanguage = data.detectedLanguage ?? data.detected_language ?? data.source_language ?? null;
         const model = data.model ?? data.translation_model ?? null;

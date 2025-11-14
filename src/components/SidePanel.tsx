@@ -8,7 +8,7 @@ import {
 import SentenceControls from "./SentenceControls";
 
 interface TranslationResult {
-  translation: string;
+  translation?: string;
   detectedLanguage?: string;
   targetLanguage?: string;
   model?: string;
@@ -79,7 +79,7 @@ export default function SidePanel({
 
     try {
       const response = await onTranslate();
-      if (response.success && response.translation) {
+      if (response.success) {
         setResult({
           translation: response.translation,
           detectedLanguage: response.detectedLanguage,
@@ -240,19 +240,23 @@ export default function SidePanel({
                 ></path>
               </svg>
             ) : (
-              `Translate ${showSentence ? "Sentence" : "Text"}`
+              "Translate & Explain"
             )}
           </button>
         </div>
 
         {result && (
           <div className="mb-5">
-            <label className="block mb-2 font-semibold text-gray-800">
-              Translation:
-            </label>
-            <div className="bg-green-50 border border-green-200 rounded-md p-3 text-gray-800 leading-normal break-words mb-2">
-              {result.translation}
-            </div>
+            {result.translation && (
+              <>
+                <label className="block mb-2 font-semibold text-gray-800">
+                  Translation:
+                </label>
+                <div className="bg-green-50 border border-green-200 rounded-md p-3 text-gray-800 leading-normal break-words mb-2">
+                  {result.translation}
+                </div>
+              </>
+            )}
             {(result.detectedLanguage || result.targetLanguage) && (
               <div className="text-xs text-gray-600 mb-2.5">
                 {result.detectedLanguage &&
@@ -266,7 +270,7 @@ export default function SidePanel({
               </div>
             )}
             {result.explanations && result.explanations.length > 0 && (
-              <div className="mt-3">
+              <div className={result.translation ? "mt-3" : ""}>
                 <label className="block mb-1.5 font-semibold text-gray-800">
                   Explanations:
                 </label>
